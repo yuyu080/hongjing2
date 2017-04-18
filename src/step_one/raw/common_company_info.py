@@ -5,7 +5,7 @@
 --master yarn \
 --deploy-mode client \
 --jars /usr/share/java/mysql-connector-java-5.1.39.jar \
---driver-class-path /usr/share/java/mysql-connector-java-5.1.39.jar 
+--driver-class-path /usr/share/java/mysql-connector-java-5.1.39.jar \
 common_company_info.py
 
 '''
@@ -23,14 +23,14 @@ def add_col(one_col, two_col):
     将2个col合成一个元祖
     '''
     return (one_col, two_col)
-add_col_udf = fun.udf(add_col, tp.ArrayType(tp.StringType()))
+
 
 def to_dict(col):
     '''
     转换成字典
     '''
     return dict(col)
-to_dict_udf = fun.udf(to_dict, tp.MapType(tp.StringType(), tp.StringType()))
+
 
 #投资方、被投资方经营状态是否为吊销
 def is_not_revoked(col):
@@ -41,7 +41,6 @@ def is_not_revoked(col):
             return 1
     except:
         return 1
-is_not_revoked_udf = fun.udf(is_not_revoked, tp.IntegerType())
 
 def has_keyword(opescope):
     '''
@@ -70,7 +69,7 @@ def has_keyword(opescope):
         return 'k_0'
     else:
         return 'k_0'
-has_keyword_udf = fun.udf(has_keyword, tp.StringType())
+
 
 def get_company_namefrag(iterator):
     '''
@@ -90,12 +89,12 @@ def get_spark_session():
     conf = SparkConf()
     conf.setMaster('yarn-client')
     conf.set("spark.yarn.am.cores", 15)
-    conf.set("spark.executor.memory", "60g")
-    conf.set("spark.executor.instances", 15)
-    conf.set("spark.executor.cores", 10)
+    conf.set("spark.executor.memory", "20g")
+    conf.set("spark.executor.instances", 30)
+    conf.set("spark.executor.cores", 5)
     conf.set("spark.python.worker.memory", "3g")
-    conf.set("spark.default.parallelism", 1000)
-    conf.set("spark.sql.shuffle.partitions", 1000)
+    conf.set("spark.default.parallelism", 600)
+    conf.set("spark.sql.shuffle.partitions", 600)
     conf.set("spark.broadcast.blockSize", 1024)
     conf.set("spark.executor.extraJavaOptions",
              "-XX:+PrintGCDetails -XX:+PrintGCTimeStamps")    
@@ -109,7 +108,7 @@ def get_spark_session():
     
     spark = SparkSession \
         .builder \
-        .appName("glf_core_node") \
+        .appName("hongjing2") \
         .config(conf = conf) \
         .enableHiveSupport() \
         .getOrCreate()    
@@ -117,21 +116,27 @@ def get_spark_session():
     return spark
         
 def run():
+    #注册udf
+    to_dict_udf = fun.udf(to_dict, tp.MapType(tp.StringType(), tp.StringType()))
+    add_col_udf = fun.udf(add_col, tp.ArrayType(tp.StringType()))
+    is_not_revoked_udf = fun.udf(is_not_revoked, tp.IntegerType())
+    has_keyword_udf = fun.udf(has_keyword, tp.StringType())
+
     #原始样本
     sample_df = spark.sql(
         '''
         SELECT
-        company company_name,
+        company company_name
         FROM
         hongjing.raw_company_namefrag
         WHERE
         dt='20170320_quanguo'
         '''
     )
-    os.system("hadoop fs -rmr {path}/ljr_sample/{version}".format(version=basic_version,
+    os.system("hadoop fs -rmr {path}/ljr_sample/{version}".format(version=leijinrong_version,
                                                                   path=path))
-    basic_df.repartition(10).write.parquet(
-        "{path}/ljr_sample/{version}".format(version=basic_version,
+    sample_df.repartition(10).write.parquet(
+        "{path}/ljr_sample/{version}".format(version=leijinrong_version,
                                              path=path))
     
     #国企列表
@@ -599,7 +604,8 @@ def run():
         .map(lambda r: Row(company_name=r[0], namefrag=r[1])) \
         .toDF()
     os.system(
-        "hadoop fs -rmr {path}/namefrag/{version}".format(version=relation_version))
+        "hadoop fs -rmr {path}/namefrag/{version}".format(version=relation_version, 
+                                                          path=path))
     namefrag_df.repartition(10).write.parquet(
         "{path}/namefrag/{version}".format(version=relation_version, 
                                            path=path))
