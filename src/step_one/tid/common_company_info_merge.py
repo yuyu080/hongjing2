@@ -840,7 +840,7 @@ if __name__ == "__main__":
     DISHONESTY_VERSION = conf.get('step_one', 'DISHONESTY_VERSION')
     JYYC_VERSION = conf.get('step_one', 'JYYC_VERSION')
     CIRCXZCF_VERSION = conf.get('step_one', 'CIRCXZCF_VERSION')
-    FZJG_VERSION = conf.get('step_one', 'CIRCXZCF_VERSION')
+    FZJG_VERSION = conf.get('step_one', 'FZJG_VERSION')
     BLACK_VERSION = conf.get('step_one', 'BLACK_VERSION')
     LEIJINRONG_VERSION = conf.get('step_one', 'LEIJINRONG_VERSION')
 
