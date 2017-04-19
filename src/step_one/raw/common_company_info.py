@@ -10,6 +10,7 @@ common_company_info.py
 
 '''
 
+import configparser
 from pyspark.conf import SparkConf
 from pyspark.sql import functions as fun
 from pyspark.sql import types as tp
@@ -108,7 +109,7 @@ def get_spark_session():
     
     spark = SparkSession \
         .builder \
-        .appName("hongjing2") \
+        .appName("hongjing2_one_raw_common") \
         .config(conf = conf) \
         .enableHiveSupport() \
         .getOrCreate()    
@@ -133,11 +134,11 @@ def run():
         dt='20170320_quanguo'
         '''
     )
-    os.system("hadoop fs -rmr {path}/ljr_sample/{version}".format(version=leijinrong_version,
-                                                                  path=path))
+    os.system("hadoop fs -rmr {path}/ljr_sample/{version}".format(version=LEIJINRONG_VERSION,
+                                                                  path=OUT_PATH))
     sample_df.repartition(10).write.parquet(
-        "{path}/ljr_sample/{version}".format(version=leijinrong_version,
-                                             path=path))
+        "{path}/ljr_sample/{version}".format(version=LEIJINRONG_VERSION,
+                                             path=OUT_PATH))
     
     #国企列表
     url = "jdbc:mysql://10.10.10.12:3306/bbd_higgs?characterEncoding=UTF-8"
@@ -146,11 +147,11 @@ def run():
     table = "qyxx_state_owned_enterprise_background"
     so_df = spark.read.jdbc(url=url, table=table, properties=prop)
     os.system("hadoop fs -rmr \
-        {path}/qyxx_state_owned_enterprise_background/{version}".format(version=so_version,
-                                                                        path=path))
+        {path}/qyxx_state_owned_enterprise_background/{version}".format(version=SO_VERSION,
+                                                                        path=OUT_PATH))
     so_df.write.parquet(
-        "{path}/qyxx_state_owned_enterprise_background/{version}".format(version=so_version,
-                                                                         path=path))
+        "{path}/qyxx_state_owned_enterprise_background/{version}".format(version=SO_VERSION,
+                                                                         path=OUT_PATH))
     
     #基础工商信息
     basic_df = spark.sql(
@@ -170,7 +171,7 @@ def run():
         dw.qyxx_basic
         WHERE
         dt='{version}'  
-        '''.format(version=basic_version)
+        '''.format(version=BASIC_VERSION)
     ).select(
         'bbd_qyxx_id',
         'company_name',
@@ -183,11 +184,11 @@ def run():
         is_not_revoked_udf('enterprise_status').alias('enterprise_status'),
         'company_province'
     ).cache()
-    os.system("hadoop fs -rmr {path}/basic/{version}".format(version=basic_version,
-                                                             path=path))
+    os.system("hadoop fs -rmr {path}/basic/{version}".format(version=BASIC_VERSION,
+                                                             path=OUT_PATH))
     basic_df.repartition(10).write.parquet(
-        "{path}/basic/{version}".format(version=basic_version,
-                                        path=path))
+        "{path}/basic/{version}".format(version=BASIC_VERSION,
+                                        path=OUT_PATH))
     
     #专利信息
     zhuanli_count_df = spark.sql(
@@ -201,14 +202,14 @@ def run():
         dt='{version}' 
         GROUP BY 
         bbd_qyxx_id
-        '''.format(version=zhuanli_version)
+        '''.format(version=ZHUANLI_VERSION)
     )
     os.system(
-        "hadoop fs -rmr {path}/zhuanli/{version}".format(version=zhuanli_version, 
-                                                         path=path))
+        "hadoop fs -rmr {path}/zhuanli/{version}".format(version=ZHUANLI_VERSION, 
+                                                         path=OUT_PATH))
     zhuanli_count_df.repartition(10).write.parquet(
-        "{path}/zhuanli/{version}".format(version=zhuanli_version, 
-                                          path=path))
+        "{path}/zhuanli/{version}".format(version=ZHUANLI_VERSION, 
+                                          path=OUT_PATH))
     
     #商标信息
     shangbiao_count_df = spark.sql(
@@ -222,14 +223,14 @@ def run():
         dt='{version}' 
         GROUP BY 
         bbd_qyxx_id
-        '''.format(version=shangbiao_version)
+        '''.format(version=SHANGBIAO_VERSION)
     )
     os.system(
-        "hadoop fs -rmr {path}/shangbiao/{version}".format(version=shangbiao_version, 
-                                                           path=path))
+        "hadoop fs -rmr {path}/shangbiao/{version}".format(version=SHANGBIAO_VERSION, 
+                                                           path=OUT_PATH))
     shangbiao_count_df.repartition(10).write.parquet(
-        "{path}/shangbiao/{version}".format(version=shangbiao_version, 
-                                            path=path))
+        "{path}/shangbiao/{version}".format(version=SHANGBIAO_VERSION, 
+                                            path=OUT_PATH))
     
     #域名与网址
     domain_website_df = spark.sql(
@@ -243,14 +244,14 @@ def run():
         dw.domain_name_website_info
         WHERE
         dt='{version}' 
-        '''.format(version=domain_website_version)
+        '''.format(version=DOMAIN_WEBSITE_VERSION)
     )
     os.system(
-        "hadoop fs -rmr {path}/domain_website/{version}".format(version=domain_website_version, 
-                                                                path=path))
+        "hadoop fs -rmr {path}/domain_website/{version}".format(version=DOMAIN_WEBSITE_VERSION, 
+                                                                path=OUT_PATH))
     domain_website_df.repartition(10).write.parquet(
-        "{path}/domain_website/{version}".format(version=domain_website_version, 
-                                                 path=path))
+        "{path}/domain_website/{version}".format(version=DOMAIN_WEBSITE_VERSION, 
+                                                 path=OUT_PATH))
     
     
     #变更信息
@@ -270,7 +271,7 @@ def run():
         change_items like '%经营范围%' )
         GROUP BY 
         bbd_qyxx_id, change_items
-        '''.format(version=bgxx_version)
+        '''.format(version=BGXX_VERSION)
     )
     bgxx_df = bgxx_df.withColumn('tid_tuple', add_col_udf('change_items', 
                                                           'change_num')) \
@@ -280,11 +281,11 @@ def run():
         .withColumn('bgxx_dict', to_dict_udf('tid_list')) \
         .select('bbd_qyxx_id', 'bgxx_dict')
     os.system(
-        "hadoop fs -rmr {path}/bgxx/{version}".format(version=bgxx_version, 
-                                                      path=path))
+        "hadoop fs -rmr {path}/bgxx/{version}".format(version=BGXX_VERSION, 
+                                                      path=OUT_PATH))
     bgxx_df.repartition(10).write.parquet(
-        "{path}/bgxx/{version}".format(version=bgxx_version, 
-                                       path=path))
+        "{path}/bgxx/{version}".format(version=BGXX_VERSION, 
+                                       path=OUT_PATH))
     
     #招聘信息
     recruit_df = spark.sql(
@@ -299,7 +300,7 @@ def run():
         dt='{version}' 
         GROUP BY
         bbd_qyxx_id, education_required
-        '''.format(version=recruit_version)
+        '''.format(version=RECRUIT_VERSION)
     )
     recruit_df = recruit_df \
         .withColumn('tid_tuple', 
@@ -310,11 +311,11 @@ def run():
         .withColumn('recruit_dict', to_dict_udf('tid_list')) \
         .select('bbd_qyxx_id', 'recruit_dict')
     os.system(
-        "hadoop fs -rmr {path}/recruit/{version}".format(version=bgxx_version, 
-                                                         path=path))
+        "hadoop fs -rmr {path}/recruit/{version}".format(version=RECRUIT_VERSION, 
+                                                         path=OUT_PATH))
     recruit_df.repartition(10).write.parquet(
-        "{path}/recruit/{version}".format(version=bgxx_version, 
-                                          path=path))
+        "{path}/recruit/{version}".format(version=RECRUIT_VERSION, 
+                                          path=OUT_PATH))
     
     #招标信息
     zhaobiao_df = spark.sql(
@@ -326,7 +327,7 @@ def run():
         dw.shgy_zhaobjg
         WHERE
         dt='{version}' 
-        '''.format(version=zhaobiao_version)
+        '''.format(version=ZHAOBIAO_VERSION)
     )
     zhaobiao_count_df = zhaobiao_df.where(
         fun.date_add('pubdate', 365) > fun.current_date()) \
@@ -335,11 +336,11 @@ def run():
     .count() \
     .withColumnRenamed('count', 'zhaobiao_num')
     os.system(
-        "hadoop fs -rmr {path}/zhaobiao/{version}".format(version=zhaobiao_version, 
-                                                          path=path))
+        "hadoop fs -rmr {path}/zhaobiao/{version}".format(version=ZHAOBIAO_VERSION, 
+                                                          path=OUT_PATH))
     zhaobiao_count_df.repartition(10).write.parquet(
-        "{path}/zhaobiao/{version}".format(version=zhaobiao_version, 
-                                           path=path))
+        "{path}/zhaobiao/{version}".format(version=ZHAOBIAO_VERSION, 
+                                           path=OUT_PATH))
     
     #中标信息
     zhongbiao_df = spark.sql(
@@ -351,7 +352,7 @@ def run():
         dw.shgy_zhaobjg
         WHERE
         dt='{version}' 
-        '''.format(version=zhongbiao_version)
+        '''.format(version=ZHONGBIAO_VERSION)
     )
     zhongbiao_count_df = zhongbiao_df.where(
             fun.date_add('pubdate', 365) > fun.current_date()) \
@@ -360,11 +361,11 @@ def run():
         .count() \
         .withColumnRenamed('count', 'zhongbiao_num')
     os.system(
-        "hadoop fs -rmr {path}/zhongbiao/{version}".format(version=zhongbiao_version, 
-                                                           path=path))
+        "hadoop fs -rmr {path}/zhongbiao/{version}".format(version=ZHONGBIAO_VERSION, 
+                                                           path=OUT_PATH))
     zhongbiao_count_df.repartition(10).write.parquet(
-        "{path}/zhongbiao/{version}".format(version=zhongbiao_version, 
-                                            path=path))
+        "{path}/zhongbiao/{version}".format(version=ZHONGBIAO_VERSION, 
+                                            path=OUT_PATH))
     
     #开庭公告
     ktgg_df = spark.sql(
@@ -380,17 +381,17 @@ def run():
         bbd_qyxx_id is not null
         AND
         action_cause != 'NULL'
-        '''.format(version=ktgg_version)
+        '''.format(version=KTGG_VERSION)
     )
     ktgg_count_df = ktgg_df.groupBy('bbd_qyxx_id')\
         .count() \
         .withColumnRenamed('count', 'ktgg_num')
     os.system(
-        "hadoop fs -rmr {path}/ktgg/{version}".format(version=ktgg_version, 
-                                                      path=path))
+        "hadoop fs -rmr {path}/ktgg/{version}".format(version=KTGG_VERSION, 
+                                                      path=OUT_PATH))
     ktgg_count_df.repartition(10).write.parquet(
-        "{path}/ktgg/{version}".format(version=ktgg_version, 
-                                       path=path))
+        "{path}/ktgg/{version}".format(version=KTGG_VERSION, 
+                                       path=OUT_PATH))
     
     
     #裁判文书
@@ -407,17 +408,17 @@ def run():
         bbd_qyxx_id is not null
         AND
         action_cause != 'NULL'
-        '''.format(version=zgcpwsw_version)
+        '''.format(version=ZGCPWSW_VERSION)
     )
     zgcpwsw_count_df = zgcpwsw_df.groupBy('bbd_qyxx_id') \
         .count() \
         .withColumnRenamed('count', 'zgcpwsw_num')
     os.system(
-        "hadoop fs -rmr {path}/zgcpwsw/{version}".format(version=zgcpwsw_version, 
-                                                         path=path))
+        "hadoop fs -rmr {path}/zgcpwsw/{version}".format(version=ZGCPWSW_VERSION, 
+                                                         path=OUT_PATH))
     zgcpwsw_count_df.repartition(10).write.parquet(
-        "{path}/zgcpwsw/{version}".format(version=zgcpwsw_version, 
-                                          path=path))
+        "{path}/zgcpwsw/{version}".format(version=ZGCPWSW_VERSION, 
+                                          path=OUT_PATH))
     
     
     #法院公告
@@ -432,17 +433,17 @@ def run():
         dt='{version}'
         AND
         bbd_qyxx_id is not null
-        '''.format(version=rmfygg_version)
+        '''.format(version=RMFYGG_VERSION)
     )
     rmfygg_count_df = rmfygg_df.groupBy('bbd_qyxx_id') \
         .count() \
         .withColumnRenamed('count', 'rmfygg_num')
     os.system(
-        "hadoop fs -rmr {path}/rmfygg/{version}".format(version=rmfygg_version, 
-                                                        path=path))
+        "hadoop fs -rmr {path}/rmfygg/{version}".format(version=RMFYGG_VERSION, 
+                                                        path=OUT_PATH))
     rmfygg_count_df.repartition(10).write.parquet(
-        "{path}/rmfygg/{version}".format(version=rmfygg_version, 
-                                         path=path))
+        "{path}/rmfygg/{version}".format(version=RMFYGG_VERSION, 
+                                         path=OUT_PATH))
     
     
     #民间借贷
@@ -458,11 +459,11 @@ def run():
         .count() \
         .withColumnRenamed('count', 'lawsuit_num')
     os.system(
-        "hadoop fs -rmr {path}/lawsuit/{version}".format(version=rmfygg_version, 
-                                                         path=path))
+        "hadoop fs -rmr {path}/lawsuit/{version}".format(version=RMFYGG_VERSION, 
+                                                         path=OUT_PATH))
     lawsuit_count_df.repartition(10).write.parquet(
-        "{path}/lawsuit/{version}".format(version=rmfygg_version, 
-                                          path=path))
+        "{path}/lawsuit/{version}".format(version=RMFYGG_VERSION, 
+                                          path=OUT_PATH))
     
     
     #行政处罚
@@ -474,17 +475,17 @@ def run():
         dw.Xzcf
         WHERE
         dt='{version}'
-        '''.format(version=xzcf_version)
+        '''.format(version=XZCF_VERSION)
     )
     xzcf_count_df = xzcf_df.groupBy('bbd_qyxx_id') \
         .count() \
         .withColumnRenamed('count', 'xzcf_num')
     os.system(
-        "hadoop fs -rmr {path}/xzcf/{version}".format(version=xzcf_version, 
-                                                      path=path))
+        "hadoop fs -rmr {path}/xzcf/{version}".format(version=XZCF_VERSION, 
+                                                      path=OUT_PATH))
     xzcf_count_df.repartition(10).write.parquet(
-        "{path}/xzcf/{version}".format(version=xzcf_version, 
-                                       path=path))
+        "{path}/xzcf/{version}".format(version=XZCF_VERSION, 
+                                       path=OUT_PATH))
     
     
     #被执行
@@ -496,17 +497,17 @@ def run():
         dw.zhixing
         WHERE
         dt='{version}'
-        '''.format(version=zhixing_version)
+        '''.format(version=ZHIXING_VERSION)
     )
     zhixing_count_df = zhixing_df.groupBy('bbd_qyxx_id') \
         .count() \
         .withColumnRenamed('count', 'zhixing_num')
     os.system(
-        "hadoop fs -rmr {path}/zhixing/{version}".format(version=zhixing_version, 
-                                                         path=path))
+        "hadoop fs -rmr {path}/zhixing/{version}".format(version=ZHIXING_VERSION, 
+                                                         path=OUT_PATH))
     zhixing_count_df.repartition(10).write.parquet(
-        "{path}/zhixing/{version}".format(version=zhixing_version, 
-                                          path=path))
+        "{path}/zhixing/{version}".format(version=ZHIXING_VERSION, 
+                                          path=OUT_PATH))
     
     
     #失信被执行
@@ -518,17 +519,17 @@ def run():
         dw.dishonesty
         WHERE
         dt='{version}'
-        '''.format(version=dishonesty_version)
+        '''.format(version=DISHONESTY_VERSION)
     )
     dishonesty_count_df = dishonesty_df.groupBy('bbd_qyxx_id') \
         .count() \
         .withColumnRenamed('count', 'dishonesty_num')
     os.system(
-        "hadoop fs -rmr {path}/dishonesty/{version}".format(version=dishonesty_version, 
-                                                            path=path))
+        "hadoop fs -rmr {path}/dishonesty/{version}".format(version=DISHONESTY_VERSION, 
+                                                            path=OUT_PATH))
     dishonesty_count_df.repartition(10).write.parquet(
-        "{path}/dishonesty/{version}".format(version=dishonesty_version, 
-                                             path=path))
+        "{path}/dishonesty/{version}".format(version=DISHONESTY_VERSION, 
+                                             path=OUT_PATH))
     
     
     #经营异常
@@ -540,17 +541,17 @@ def run():
         dw.qyxg_jyyc
         WHERE
         dt='{version}'
-        '''.format(version=jyyc_version)
+        '''.format(version=JYYC_VERSION)
     )
     jyyc_count_df = jyyc_df.groupBy('bbd_qyxx_id') \
         .count() \
         .withColumnRenamed('count', 'jyyc_num')
     os.system(
-        "hadoop fs -rmr {path}/jyyc/{version}".format(version=jyyc_version, 
-                                                      path=path))
+        "hadoop fs -rmr {path}/jyyc/{version}".format(version=JYYC_VERSION, 
+                                                      path=OUT_PATH))
     jyyc_count_df.repartition(10).write.parquet(
-        "{path}/jyyc/{version}".format(version=jyyc_version, 
-                                       path=path))
+        "{path}/jyyc/{version}".format(version=JYYC_VERSION, 
+                                       path=OUT_PATH))
     
     
     #银监会行政处罚
@@ -562,17 +563,17 @@ def run():
         dw.qyxg_circxzcf
         WHERE
         dt='{version}'
-        '''.format(version=circxzcf_version)
+        '''.format(version=CIRCXZCF_VERSION)
     )
     circxzcf_count_df = circxzcf_df.groupBy('bbd_qyxx_id') \
         .count() \
         .withColumnRenamed('count', 'circxzcf_num')
     os.system(
-        "hadoop fs -rmr {path}/circxzcf/{version}".format(version=circxzcf_version, 
-                                                          path=path))
+        "hadoop fs -rmr {path}/circxzcf/{version}".format(version=CIRCXZCF_VERSION, 
+                                                          path=OUT_PATH))
     circxzcf_count_df.repartition(10).write.parquet(
-        "{path}/circxzcf/{version}".format(version=circxzcf_version, 
-                                           path=path))
+        "{path}/circxzcf/{version}".format(version=CIRCXZCF_VERSION, 
+                                           path=OUT_PATH))
     
     
     #分支机构
@@ -584,17 +585,17 @@ def run():
         dw.qyxx_fzjg_extend
         WHERE
         dt='{version}'
-        '''.format(version=fzjg_version)
+        '''.format(version=FZJG_VERSION)
     )
     fzjg_count_df = fzjg_df.groupBy('bbd_qyxx_id') \
         .count() \
         .withColumnRenamed('count', 'fzjg_num')
     os.system(
-        "hadoop fs -rmr {path}/fzjg/{version}".format(version=fzjg_version, 
-                                                      path=path))
+        "hadoop fs -rmr {path}/fzjg/{version}".format(version=FZJG_VERSION, 
+                                                      path=OUT_PATH))
     fzjg_count_df.repartition(10).write.parquet(
-        "{path}/fzjg/{version}".format(version=fzjg_version, 
-                                       path=path))
+        "{path}/fzjg/{version}".format(version=FZJG_VERSION, 
+                                       path=OUT_PATH))
     
     
     #公司字号
@@ -604,11 +605,11 @@ def run():
         .map(lambda r: Row(company_name=r[0], namefrag=r[1])) \
         .toDF()
     os.system(
-        "hadoop fs -rmr {path}/namefrag/{version}".format(version=relation_version, 
-                                                          path=path))
+        "hadoop fs -rmr {path}/namefrag/{version}".format(version=LEIJINRONG_VERSION, 
+                                                          path=OUT_PATH))
     namefrag_df.repartition(10).write.parquet(
-        "{path}/namefrag/{version}".format(version=relation_version, 
-                                           path=path))
+        "{path}/namefrag/{version}".format(version=LEIJINRONG_VERSION, 
+                                           path=OUT_PATH))
     
     
     #黑企业名单
@@ -620,7 +621,7 @@ def run():
         FROM 
         hongjing.raw_black_company 
         WHERE dt={version}
-        '''.format(version=black_version))
+        '''.format(version=BLACK_VERSION))
     #黑企业省份分布
     black_province_df  = black_df.join(
         basic_df,
@@ -638,11 +639,11 @@ def run():
         'count(company_name)', 'province_black_num'
     )
     os.system(
-        "hadoop fs -rmr {path}/black_province/{version}".format(version=black_version, 
-                                                                path=path))
+        "hadoop fs -rmr {path}/black_province/{version}".format(version=BLACK_VERSION, 
+                                                                path=OUT_PATH))
     black_province_df.repartition(10).write.parquet(
-        "{path}/black_province/{version}".format(version=black_version, 
-                                                 path=path))
+        "{path}/black_province/{version}".format(version=BLACK_VERSION, 
+                                                 path=OUT_PATH))
     
     
     #类金融名单
@@ -654,7 +655,7 @@ def run():
         hongjing.raw_company_namefrag 
         WHERE
         dt='{version}'
-        '''.format(version=leijinrong_version))
+        '''.format(version=LEIJINRONG_VERSION))
     #类金融企业省份分布
     leijinrong_province_df  = leijinrong_df.join(
         basic_df,
@@ -672,46 +673,42 @@ def run():
         'count(company_name)', 'province_leijinrong_num'
     )
     os.system(
-        "hadoop fs -rmr {path}/leijinrong_province/{version}".format(version=leijinrong_version, 
-                                                                     path=path))
+        "hadoop fs -rmr {path}/leijinrong_province/{version}".format(version=LEIJINRONG_VERSION, 
+                                                                     path=OUT_PATH))
     leijinrong_province_df.repartition(10).write.parquet(
-    "{path}/leijinrong_province/{version}".format(version=leijinrong_version, 
-                                                  path=path))
+    "{path}/leijinrong_province/{version}".format(version=LEIJINRONG_VERSION, 
+                                                  path=OUT_PATH))
 
 
     
 if __name__ == "__main__":
-    #输入数据版本
-    relation_version = '20170117'
-    so_version = '20170217'
-    basic_version = '20170217'
-    zhuanli_version = '20170217'
-    shangbiao_version = '20170219'
-    domain_website_version = '20170217'
-    bgxx_version = '20170217'
-    recruit_version = '20170217'
-    zhaobiao_version = '20170219'
-    zhongbiao_version = '20170219' 
-    ktgg_version = '20170219'
-    zgcpwsw_version = '20170217'
-    rmfygg_version = '20170219'
-    xzcf_version = '20170219'
-    zhixing_version = '20170219'
-    dishonesty_version = '20170219'
-    jyyc_version = '20170219'
-    circxzcf_version = '20170219'
-    fzjg_version = '20170227'
-    black_version = '20170406'
-    leijinrong_version = '20170320_quanguo'
-    #中间结果版本
-    tid_version = relation_version   
+    conf = configparser.ConfigParser()    
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.conf")
     
-    #输入样本的参数
-    sample_company_type = 'tar_company'
-    sample_company_name = 'raw_jl_company_list_20170414_1.data'
+    #输入数据版本
+    SO_VERSION = conf.get('step_one', 'SO_VERSION')
+    BASIC_VERSION = conf.get('step_one', 'BASIC_VERSION')
+    ZHUANLI_VERSION = conf.get('step_one', 'ZHUANLI_VERSION')
+    SHANGBIAO_VERSION = conf.get('step_one', 'SHANGBIAO_VERSION')
+    DOMAIN_WEBSITE_VERSION = conf.get('step_one', 'DOMAIN_WEBSITE_VERSION')
+    BGXX_VERSION = conf.get('step_one', 'BGXX_VERSION')
+    RECRUIT_VERSION = conf.get('step_one', 'RECRUIT_VERSION')
+    ZHAOBIAO_VERSION = conf.get('step_one', 'ZHAOBIAO_VERSION')
+    ZHONGBIAO_VERSION = conf.get('step_one', 'ZHONGBIAO_VERSION')
+    KTGG_VERSION = conf.get('step_one', 'KTGG_VERSION')
+    ZGCPWSW_VERSION = conf.get('step_one', 'ZGCPWSW_VERSION')
+    RMFYGG_VERSION = conf.get('step_one', 'RMFYGG_VERSION')
+    XZCF_VERSION = conf.get('step_one', 'XZCF_VERSION')
+    ZHIXING_VERSION = conf.get('step_one', 'ZHIXING_VERSION')
+    DISHONESTY_VERSION = conf.get('step_one', 'DISHONESTY_VERSION')
+    JYYC_VERSION = conf.get('step_one', 'JYYC_VERSION')
+    CIRCXZCF_VERSION = conf.get('step_one', 'CIRCXZCF_VERSION')
+    FZJG_VERSION = conf.get('step_one', 'CIRCXZCF_VERSION')
+    BLACK_VERSION = conf.get('step_one', 'BLACK_VERSION')
+    LEIJINRONG_VERSION = conf.get('step_one', 'LEIJINRONG_VERSION')
     
     #数据输出路径
-    path = "/user/antifraud/hongjing2/dataflow/step_one/raw/"
+    OUT_PATH = conf.get('step_one', 'raw_out_path')
 
     #sparkSession
     spark = get_spark_session()
