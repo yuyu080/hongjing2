@@ -147,10 +147,10 @@ def run():
     table = "qyxx_state_owned_enterprise_background"
     so_df = spark.read.jdbc(url=url, table=table, properties=prop)
     os.system("hadoop fs -rmr \
-        {path}/qyxx_state_owned_enterprise_background/{version}".format(version=SO_VERSION,
+        {path}/qyxx_state_owned_enterprise_background/{version}".format(version=RELATION_VERSION,
                                                                         path=OUT_PATH))
     so_df.write.parquet(
-        "{path}/qyxx_state_owned_enterprise_background/{version}".format(version=SO_VERSION,
+        "{path}/qyxx_state_owned_enterprise_background/{version}".format(version=RELATION_VERSION,
                                                                          path=OUT_PATH))
     
     #基础工商信息
@@ -184,10 +184,10 @@ def run():
         is_not_revoked_udf('enterprise_status').alias('enterprise_status'),
         'company_province'
     ).cache()
-    os.system("hadoop fs -rmr {path}/basic/{version}".format(version=BASIC_VERSION,
+    os.system("hadoop fs -rmr {path}/basic/{version}".format(version=RELATION_VERSION,
                                                              path=OUT_PATH))
     basic_df.repartition(10).write.parquet(
-        "{path}/basic/{version}".format(version=BASIC_VERSION,
+        "{path}/basic/{version}".format(version=RELATION_VERSION,
                                         path=OUT_PATH))
     
     #专利信息
@@ -200,15 +200,18 @@ def run():
         dw.qyxx_zhuanli
         WHERE
         dt='{version}' 
+        AND
+        publidate <= '{relation_version}'
         GROUP BY 
         bbd_qyxx_id
-        '''.format(version=ZHUANLI_VERSION)
+        '''.format(version=ZHUANLI_VERSION,
+                   relation_version=RELATION_VERSION)
     )
     os.system(
-        "hadoop fs -rmr {path}/zhuanli/{version}".format(version=ZHUANLI_VERSION, 
+        "hadoop fs -rmr {path}/zhuanli/{version}".format(version=RELATION_VERSION, 
                                                          path=OUT_PATH))
     zhuanli_count_df.repartition(10).write.parquet(
-        "{path}/zhuanli/{version}".format(version=ZHUANLI_VERSION, 
+        "{path}/zhuanli/{version}".format(version=RELATION_VERSION, 
                                           path=OUT_PATH))
     
     #商标信息
@@ -226,10 +229,10 @@ def run():
         '''.format(version=SHANGBIAO_VERSION)
     )
     os.system(
-        "hadoop fs -rmr {path}/shangbiao/{version}".format(version=SHANGBIAO_VERSION, 
+        "hadoop fs -rmr {path}/shangbiao/{version}".format(version=RELATION_VERSION, 
                                                            path=OUT_PATH))
     shangbiao_count_df.repartition(10).write.parquet(
-        "{path}/shangbiao/{version}".format(version=SHANGBIAO_VERSION, 
+        "{path}/shangbiao/{version}".format(version=RELATION_VERSION, 
                                             path=OUT_PATH))
     
     #域名与网址
@@ -247,10 +250,10 @@ def run():
         '''.format(version=DOMAIN_WEBSITE_VERSION)
     )
     os.system(
-        "hadoop fs -rmr {path}/domain_website/{version}".format(version=DOMAIN_WEBSITE_VERSION, 
+        "hadoop fs -rmr {path}/domain_website/{version}".format(version=RELATION_VERSION, 
                                                                 path=OUT_PATH))
     domain_website_df.repartition(10).write.parquet(
-        "{path}/domain_website/{version}".format(version=DOMAIN_WEBSITE_VERSION, 
+        "{path}/domain_website/{version}".format(version=RELATION_VERSION, 
                                                  path=OUT_PATH))
     
     
@@ -266,12 +269,15 @@ def run():
         WHERE
         dt='{version}' 
         AND
+        change_date <= '{relation_version}'
+        AND
         (change_items like '%高管%'  OR change_items like '%法定代表人%'  OR 
         change_items like '%股东%'  OR change_items like '%注册资本%'  OR
         change_items like '%经营范围%' )
         GROUP BY 
         bbd_qyxx_id, change_items
-        '''.format(version=BGXX_VERSION)
+        '''.format(version=BGXX_VERSION,
+                   relation_version=RELATION_VERSION)
     )
     bgxx_df = bgxx_df.withColumn('tid_tuple', add_col_udf('change_items', 
                                                           'change_num')) \
@@ -281,10 +287,10 @@ def run():
         .withColumn('bgxx_dict', to_dict_udf('tid_list')) \
         .select('bbd_qyxx_id', 'bgxx_dict')
     os.system(
-        "hadoop fs -rmr {path}/bgxx/{version}".format(version=BGXX_VERSION, 
+        "hadoop fs -rmr {path}/bgxx/{version}".format(version=RELATION_VERSION, 
                                                       path=OUT_PATH))
     bgxx_df.repartition(10).write.parquet(
-        "{path}/bgxx/{version}".format(version=BGXX_VERSION, 
+        "{path}/bgxx/{version}".format(version=RELATION_VERSION, 
                                        path=OUT_PATH))
     
     #招聘信息
@@ -298,9 +304,12 @@ def run():
         dw.recruit
         WHERE
         dt='{version}' 
+        AND
+        pubdate <= '{relation_version}'
         GROUP BY
         bbd_qyxx_id, education_required
-        '''.format(version=RECRUIT_VERSION)
+        '''.format(version=RECRUIT_VERSION,
+                   relation_version=RELATION_VERSION)
     )
     recruit_df = recruit_df \
         .withColumn('tid_tuple', 
@@ -311,10 +320,10 @@ def run():
         .withColumn('recruit_dict', to_dict_udf('tid_list')) \
         .select('bbd_qyxx_id', 'recruit_dict')
     os.system(
-        "hadoop fs -rmr {path}/recruit/{version}".format(version=RECRUIT_VERSION, 
+        "hadoop fs -rmr {path}/recruit/{version}".format(version=RELATION_VERSION, 
                                                          path=OUT_PATH))
     recruit_df.repartition(10).write.parquet(
-        "{path}/recruit/{version}".format(version=RECRUIT_VERSION, 
+        "{path}/recruit/{version}".format(version=RELATION_VERSION, 
                                           path=OUT_PATH))
     
     #招标信息
@@ -327,7 +336,10 @@ def run():
         dw.shgy_zhaobjg
         WHERE
         dt='{version}' 
-        '''.format(version=ZHAOBIAO_VERSION)
+        AND
+        pubdate <= '{relation_version}'
+        '''.format(version=ZHAOBIAO_VERSION,
+                   relation_version=RELATION_VERSION)
     )
     zhaobiao_count_df = zhaobiao_df.where(
         fun.date_add('pubdate', 365) > fun.current_date()) \
@@ -336,10 +348,10 @@ def run():
     .count() \
     .withColumnRenamed('count', 'zhaobiao_num')
     os.system(
-        "hadoop fs -rmr {path}/zhaobiao/{version}".format(version=ZHAOBIAO_VERSION, 
+        "hadoop fs -rmr {path}/zhaobiao/{version}".format(version=RELATION_VERSION, 
                                                           path=OUT_PATH))
     zhaobiao_count_df.repartition(10).write.parquet(
-        "{path}/zhaobiao/{version}".format(version=ZHAOBIAO_VERSION, 
+        "{path}/zhaobiao/{version}".format(version=RELATION_VERSION, 
                                            path=OUT_PATH))
     
     #中标信息
@@ -349,10 +361,13 @@ def run():
         bbd_qyxx_id,
         pubdate
         FROM
-        dw.shgy_zhaobjg
+        dw.shgy_zhongbjg
         WHERE
         dt='{version}' 
-        '''.format(version=ZHONGBIAO_VERSION)
+        AND
+        pubdate <= '{relation_version}'
+        '''.format(version=ZHONGBIAO_VERSION,
+                   relation_version=RELATION_VERSION)
     )
     zhongbiao_count_df = zhongbiao_df.where(
             fun.date_add('pubdate', 365) > fun.current_date()) \
@@ -361,10 +376,10 @@ def run():
         .count() \
         .withColumnRenamed('count', 'zhongbiao_num')
     os.system(
-        "hadoop fs -rmr {path}/zhongbiao/{version}".format(version=ZHONGBIAO_VERSION, 
+        "hadoop fs -rmr {path}/zhongbiao/{version}".format(version=RELATION_VERSION, 
                                                            path=OUT_PATH))
     zhongbiao_count_df.repartition(10).write.parquet(
-        "{path}/zhongbiao/{version}".format(version=ZHONGBIAO_VERSION, 
+        "{path}/zhongbiao/{version}".format(version=RELATION_VERSION, 
                                             path=OUT_PATH))
     
     #开庭公告
@@ -381,16 +396,19 @@ def run():
         bbd_qyxx_id is not null
         AND
         action_cause != 'NULL'
-        '''.format(version=KTGG_VERSION)
+        AND
+        trial_date <= '{relation_version}'
+        '''.format(version=KTGG_VERSION,
+                   relation_version=RELATION_VERSION)
     )
     ktgg_count_df = ktgg_df.groupBy('bbd_qyxx_id')\
         .count() \
         .withColumnRenamed('count', 'ktgg_num')
     os.system(
-        "hadoop fs -rmr {path}/ktgg/{version}".format(version=KTGG_VERSION, 
+        "hadoop fs -rmr {path}/ktgg/{version}".format(version=RELATION_VERSION, 
                                                       path=OUT_PATH))
     ktgg_count_df.repartition(10).write.parquet(
-        "{path}/ktgg/{version}".format(version=KTGG_VERSION, 
+        "{path}/ktgg/{version}".format(version=RELATION_VERSION, 
                                        path=OUT_PATH))
     
     
@@ -408,16 +426,19 @@ def run():
         bbd_qyxx_id is not null
         AND
         action_cause != 'NULL'
-        '''.format(version=ZGCPWSW_VERSION)
+        AND
+        sentence_date <= '{relation_version}'
+        '''.format(version=ZGCPWSW_VERSION,
+                   relation_version=RELATION_VERSION)
     )
     zgcpwsw_count_df = zgcpwsw_df.groupBy('bbd_qyxx_id') \
         .count() \
         .withColumnRenamed('count', 'zgcpwsw_num')
     os.system(
-        "hadoop fs -rmr {path}/zgcpwsw/{version}".format(version=ZGCPWSW_VERSION, 
+        "hadoop fs -rmr {path}/zgcpwsw/{version}".format(version=RELATION_VERSION, 
                                                          path=OUT_PATH))
     zgcpwsw_count_df.repartition(10).write.parquet(
-        "{path}/zgcpwsw/{version}".format(version=ZGCPWSW_VERSION, 
+        "{path}/zgcpwsw/{version}".format(version=RELATION_VERSION, 
                                           path=OUT_PATH))
     
     
@@ -433,16 +454,19 @@ def run():
         dt='{version}'
         AND
         bbd_qyxx_id is not null
-        '''.format(version=RMFYGG_VERSION)
+        AND
+        notice_time <= '{relation_version}'
+        '''.format(version=RMFYGG_VERSION,
+                   relation_version=RELATION_VERSION)
     )
     rmfygg_count_df = rmfygg_df.groupBy('bbd_qyxx_id') \
         .count() \
         .withColumnRenamed('count', 'rmfygg_num')
     os.system(
-        "hadoop fs -rmr {path}/rmfygg/{version}".format(version=RMFYGG_VERSION, 
+        "hadoop fs -rmr {path}/rmfygg/{version}".format(version=RELATION_VERSION, 
                                                         path=OUT_PATH))
     rmfygg_count_df.repartition(10).write.parquet(
-        "{path}/rmfygg/{version}".format(version=RMFYGG_VERSION, 
+        "{path}/rmfygg/{version}".format(version=RELATION_VERSION, 
                                          path=OUT_PATH))
     
     
@@ -459,10 +483,10 @@ def run():
         .count() \
         .withColumnRenamed('count', 'lawsuit_num')
     os.system(
-        "hadoop fs -rmr {path}/lawsuit/{version}".format(version=RMFYGG_VERSION, 
+        "hadoop fs -rmr {path}/lawsuit/{version}".format(version=RELATION_VERSION, 
                                                          path=OUT_PATH))
     lawsuit_count_df.repartition(10).write.parquet(
-        "{path}/lawsuit/{version}".format(version=RMFYGG_VERSION, 
+        "{path}/lawsuit/{version}".format(version=RELATION_VERSION, 
                                           path=OUT_PATH))
     
     
@@ -475,16 +499,19 @@ def run():
         dw.Xzcf
         WHERE
         dt='{version}'
-        '''.format(version=XZCF_VERSION)
+        AND
+        public_date <= '{relation_version}'
+        '''.format(version=XZCF_VERSION,
+                   relation_version=RELATION_VERSION)
     )
     xzcf_count_df = xzcf_df.groupBy('bbd_qyxx_id') \
         .count() \
         .withColumnRenamed('count', 'xzcf_num')
     os.system(
-        "hadoop fs -rmr {path}/xzcf/{version}".format(version=XZCF_VERSION, 
+        "hadoop fs -rmr {path}/xzcf/{version}".format(version=RELATION_VERSION, 
                                                       path=OUT_PATH))
     xzcf_count_df.repartition(10).write.parquet(
-        "{path}/xzcf/{version}".format(version=XZCF_VERSION, 
+        "{path}/xzcf/{version}".format(version=RELATION_VERSION, 
                                        path=OUT_PATH))
     
     
@@ -497,16 +524,19 @@ def run():
         dw.zhixing
         WHERE
         dt='{version}'
-        '''.format(version=ZHIXING_VERSION)
+        AND
+        case_create_time <= '{relation_version}'
+        '''.format(version=ZHIXING_VERSION,
+                   relation_version=RELATION_VERSION)
     )
     zhixing_count_df = zhixing_df.groupBy('bbd_qyxx_id') \
         .count() \
         .withColumnRenamed('count', 'zhixing_num')
     os.system(
-        "hadoop fs -rmr {path}/zhixing/{version}".format(version=ZHIXING_VERSION, 
+        "hadoop fs -rmr {path}/zhixing/{version}".format(version=RELATION_VERSION, 
                                                          path=OUT_PATH))
     zhixing_count_df.repartition(10).write.parquet(
-        "{path}/zhixing/{version}".format(version=ZHIXING_VERSION, 
+        "{path}/zhixing/{version}".format(version=RELATION_VERSION, 
                                           path=OUT_PATH))
     
     
@@ -519,16 +549,19 @@ def run():
         dw.dishonesty
         WHERE
         dt='{version}'
-        '''.format(version=DISHONESTY_VERSION)
+        AND
+        case_create_time <= '{relation_version}'
+        '''.format(version=DISHONESTY_VERSION,
+                   relation_version=RELATION_VERSION)
     )
     dishonesty_count_df = dishonesty_df.groupBy('bbd_qyxx_id') \
         .count() \
         .withColumnRenamed('count', 'dishonesty_num')
     os.system(
-        "hadoop fs -rmr {path}/dishonesty/{version}".format(version=DISHONESTY_VERSION, 
+        "hadoop fs -rmr {path}/dishonesty/{version}".format(version=RELATION_VERSION, 
                                                             path=OUT_PATH))
     dishonesty_count_df.repartition(10).write.parquet(
-        "{path}/dishonesty/{version}".format(version=DISHONESTY_VERSION, 
+        "{path}/dishonesty/{version}".format(version=RELATION_VERSION, 
                                              path=OUT_PATH))
     
     
@@ -541,16 +574,19 @@ def run():
         dw.qyxg_jyyc
         WHERE
         dt='{version}'
-        '''.format(version=JYYC_VERSION)
+        AND
+        rank_date <= '{relation_version}'
+        '''.format(version=JYYC_VERSION,
+                   relation_version=RELATION_VERSION)
     )
     jyyc_count_df = jyyc_df.groupBy('bbd_qyxx_id') \
         .count() \
         .withColumnRenamed('count', 'jyyc_num')
     os.system(
-        "hadoop fs -rmr {path}/jyyc/{version}".format(version=JYYC_VERSION, 
+        "hadoop fs -rmr {path}/jyyc/{version}".format(version=RELATION_VERSION, 
                                                       path=OUT_PATH))
     jyyc_count_df.repartition(10).write.parquet(
-        "{path}/jyyc/{version}".format(version=JYYC_VERSION, 
+        "{path}/jyyc/{version}".format(version=RELATION_VERSION, 
                                        path=OUT_PATH))
     
     
@@ -563,16 +599,19 @@ def run():
         dw.qyxg_circxzcf
         WHERE
         dt='{version}'
-        '''.format(version=CIRCXZCF_VERSION)
+        AND
+        pubdate <= '{relation_version}'
+        '''.format(version=CIRCXZCF_VERSION,
+                   relation_version=RELATION_VERSION)
     )
     circxzcf_count_df = circxzcf_df.groupBy('bbd_qyxx_id') \
         .count() \
         .withColumnRenamed('count', 'circxzcf_num')
     os.system(
-        "hadoop fs -rmr {path}/circxzcf/{version}".format(version=CIRCXZCF_VERSION, 
+        "hadoop fs -rmr {path}/circxzcf/{version}".format(version=RELATION_VERSION, 
                                                           path=OUT_PATH))
     circxzcf_count_df.repartition(10).write.parquet(
-        "{path}/circxzcf/{version}".format(version=CIRCXZCF_VERSION, 
+        "{path}/circxzcf/{version}".format(version=RELATION_VERSION, 
                                            path=OUT_PATH))
     
     
@@ -591,10 +630,10 @@ def run():
         .count() \
         .withColumnRenamed('count', 'fzjg_num')
     os.system(
-        "hadoop fs -rmr {path}/fzjg/{version}".format(version=FZJG_VERSION, 
+        "hadoop fs -rmr {path}/fzjg/{version}".format(version=RELATION_VERSION, 
                                                       path=OUT_PATH))
     fzjg_count_df.repartition(10).write.parquet(
-        "{path}/fzjg/{version}".format(version=FZJG_VERSION, 
+        "{path}/fzjg/{version}".format(version=RELATION_VERSION, 
                                        path=OUT_PATH))
     
     
@@ -605,10 +644,10 @@ def run():
         .map(lambda r: Row(company_name=r[0], namefrag=r[1])) \
         .toDF()
     os.system(
-        "hadoop fs -rmr {path}/namefrag/{version}".format(version=LEIJINRONG_VERSION, 
+        "hadoop fs -rmr {path}/namefrag/{version}".format(version=RELATION_VERSION, 
                                                           path=OUT_PATH))
     namefrag_df.repartition(10).write.parquet(
-        "{path}/namefrag/{version}".format(version=LEIJINRONG_VERSION, 
+        "{path}/namefrag/{version}".format(version=RELATION_VERSION, 
                                            path=OUT_PATH))
     
     
@@ -639,10 +678,10 @@ def run():
         'count(company_name)', 'province_black_num'
     )
     os.system(
-        "hadoop fs -rmr {path}/black_province/{version}".format(version=BLACK_VERSION, 
+        "hadoop fs -rmr {path}/black_province/{version}".format(version=RELATION_VERSION, 
                                                                 path=OUT_PATH))
     black_province_df.repartition(10).write.parquet(
-        "{path}/black_province/{version}".format(version=BLACK_VERSION, 
+        "{path}/black_province/{version}".format(version=RELATION_VERSION, 
                                                  path=OUT_PATH))
     
     
@@ -673,10 +712,10 @@ def run():
         'count(company_name)', 'province_leijinrong_num'
     )
     os.system(
-        "hadoop fs -rmr {path}/leijinrong_province/{version}".format(version=LEIJINRONG_VERSION, 
+        "hadoop fs -rmr {path}/leijinrong_province/{version}".format(version=RELATION_VERSION, 
                                                                      path=OUT_PATH))
     leijinrong_province_df.repartition(10).write.parquet(
-    "{path}/leijinrong_province/{version}".format(version=LEIJINRONG_VERSION, 
+    "{path}/leijinrong_province/{version}".format(version=RELATION_VERSION, 
                                                   path=OUT_PATH))
 
 
@@ -684,6 +723,9 @@ def run():
 if __name__ == "__main__":
     conf = configparser.ConfigParser()    
     conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.conf")
+
+    #关联方版本
+    RELATION_VERSION = '20170403'    
     
     #输入数据版本
     SO_VERSION = conf.get('step_one', 'SO_VERSION')
