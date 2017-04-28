@@ -13,7 +13,6 @@ import json
 import os
 from operator import itemgetter
 from collections import Counter, defaultdict, OrderedDict
-import configparser
 
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
@@ -24,7 +23,7 @@ import numpy as np
 class FeatureConstruction(object):
     '''
     计算特征的函数集
-    '''      
+    '''
 
     def __fault_tolerant(func):
         '''
@@ -364,8 +363,19 @@ class FeatureConstruction(object):
             for node, attr in cls.DIG.nodes_iter(data=True) 
             if attr['distance'] <= 3 
             and attr['is_human'] == 0 
-            and attr['esdate'] is not None]
-        t = round(np.average(esdate_relation_set), 2)
+            and attr['esdate']]
+        
+        
+        if esdate_relation_set:
+            t_2 = round(np.average(esdate_relation_set), 2)
+        else:
+            t_2 = 0.
+        try:
+            tar_date = cls.DIG.node[cls.tarcompany]['esdate']
+            t_1 = (datetime.date.today() - tar_date).days 
+        except:
+            t_1 = 0.
+        t = (t_1+t_2) / 2.
         
         if 0 <= t < 365:
             y = 100
@@ -377,8 +387,10 @@ class FeatureConstruction(object):
             y = 10
         else:
             y = 100
+            
         return dict(
-            t=t if t else 0,
+            t_1=t_1,
+            t_2=t_2,
             y=y
         )
 
@@ -500,7 +512,7 @@ class FeatureConstruction(object):
         risk['r'] = round(
             np.dot(
                 map(sum, [risk[each_distance].values() 
-                        for each_distance in xrange(0, 4)]), 
+                    for each_distance in xrange(0, 4)]), 
                 [1., 1/2., 1/3., 1/4.]), 2)
         
         if risk['r'] == 0:
@@ -622,8 +634,8 @@ class FeatureConstruction(object):
                 if attr['is_human'] == 0])
         
         risk = round(((
-                    2*(nature_max_control + legal_max_control) + 
-                    (nature_avg_control + legal_avg_control)) /
+                    2*(nature_max_control + nature_avg_control) + 
+                    (legal_max_control + legal_avg_control)) /
                 (2*total_legal_num + 0.001)), 2)
         
         if 0 <= risk <= 0.5:
@@ -793,8 +805,8 @@ class FeatureConstruction(object):
                 relation_two_num, 
                 relation_three_num]).astype(float)
         
-        y_2 = x[2] / (x[1]+x[2])
-        y_3 = x[3] / (x[1]+x[2]+x[3])
+        y_2 = x[2] / (x[1]+x[2]) if x[1]+x[2] else 0.
+        y_3 = x[3] / (x[1]+x[2]+x[3]) if x[1]+x[2]+x[3] else 0.
         risk = y_2/2 + y_3/3
         
         if 0 <= risk <= 0.1:
@@ -824,10 +836,14 @@ class FeatureConstruction(object):
         潜在违规融资风险
         '''
         def get_relation_risk_num(keyword_type):
-            return Counter([attr['distance']
+            return Counter(
+                [
+                    attr['distance']
                     for node, attr in cls.DIG.nodes_iter(data=True) 
                     if attr['is_human'] == 0 and 
-                    attr['opescope'] == keyword_type])
+                    attr['opescope'] == keyword_type
+                ]
+            )
         
         k_2_num = get_relation_risk_num('k_2')
         k_1_num = get_relation_risk_num('k_1')
@@ -1102,9 +1118,9 @@ def get_spark_session():
     conf = SparkConf()
     conf.setMaster('yarn-client')
     conf.set("spark.yarn.am.cores", 7)
-    conf.set("spark.executor.memory", "50g")
-    conf.set("spark.executor.instances", 20)
-    conf.set("spark.executor.cores", 10)
+    conf.set("spark.executor.memory", "25g")
+    conf.set("spark.executor.instances", 30)
+    conf.set("spark.executor.cores", 5)
     conf.set("spark.python.worker.memory", "2g")
     conf.set("spark.default.parallelism", 1000)
     conf.set("spark.sql.shuffle.partitions", 1000)
@@ -1116,7 +1132,7 @@ def get_spark_session():
     spark = SparkSession \
         .builder \
         .appName("hgongjing2_one_prd_common_static") \
-        .config(conf = conf) \
+        .config(conf=conf) \
         .enableHiveSupport() \
         .getOrCreate()  
         
@@ -1132,7 +1148,7 @@ def spark_data_flow(tidversion):
         "{path}/common_company_info_merge/{version}".format(path=IN_PATH,
                                                             version=tidversion))
     tid_rdd = tid_df.rdd
-        
+
     #最终计算流程
     tid_rdd_2 = tid_rdd.map(lambda row: (row.a_name, row)) \
         .groupByKey() \
@@ -1140,15 +1156,37 @@ def spark_data_flow(tidversion):
         .filter(lambda r: len(r[1].data) <= 100000) \
         .cache()
 
+
+    import signal
+    def handler(signum, frame):
+        raise AssertionError
+
+    def fault_tolerant(func):
+        def wappen(*args):
+            try:
+                return func(*args)
+            except:
+                return 'acer'
+        return wappen
+
+    @fault_tolerant
+    def time_out(data):
+        signal.signal(signal.SIGALRM, handler)
+        signal.alarm(30)
+        result = FeatureConstruction.get_some_feature(data, 
+                                                      [_ for _ in range(1, 25)])
+        signal.alarm(0)
+        return result
+
     def calculate(data):
         return FeatureConstruction.get_some_feature(data, 
                                                     [_ for _ in range(1, 25)])
         
     feature_list = tid_rdd_2.mapValues(
-        calculate
+        time_out
     ).map(
         itemgetter(1)
-    )   
+    )
     
     return feature_list
 
@@ -1160,25 +1198,26 @@ def run(relation_version):
     os.system(
         ("hadoop fs -rmr " 
          "{path}/"
-         "common_static_feature_distribution/{version}").format(path=OUT_PATH, 
-                                                                version=relation_version))
+         "common_static_feature_distribution"
+         "/{version}").format(path=OUT_PATH, 
+                              version=relation_version))
     pd_df.repartition(10).saveAsTextFile(
-        "{path}/"
-        "common_static_feature_distribution/{version}".format(path=OUT_PATH, 
-                                                              version=relation_version))
+        ("{path}/"
+        "common_static_feature_distribution"
+        "/{version}").format(path=OUT_PATH, 
+                            version=relation_version))
 
     
 if __name__ == '__main__':  
-    conf = configparser.ConfigParser()    
-    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.conf")
-    
-    #输入参数
-    IN_PATH = conf.get('step_one', 'prd_in_path')
-    OUT_PATH = conf.get('step_one', 'prd_out_path')
-    
-    spark = get_spark_session()
     
     #中间结果版本
-    RELATION_VERSIONS = eval(conf.get('step_one', 'RELATION_VERSIONS'))
-    for relation_version in RELATION_VERSIONS:
-        run(relation_version)
+    RELATION_VERSION = '20170117'
+    
+    #输入参数
+    IN_PATH = "/user/antifraud/hongjing2/dataflow/step_one/tid/"
+    OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
+    
+    spark = get_spark_session()
+
+    run(relation_version=RELATION_VERSION)
+    

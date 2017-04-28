@@ -51,7 +51,7 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
     p2p_df = spark.read.json(
         "{path}/"
         "p2p_feature_distribution/{version}".format(path=IN_PAHT, 
-                                                               version=relation_version))
+                                                    version=relation_version))
     raw_df = p2p_df.join(
         static_df,
         static_df.company_name == p2p_df.company_name,
@@ -129,9 +129,9 @@ def run():
 
 if __name__ == '__main__':
     #输入参数
-    RAW_STATIC_VERSION, RAW_DYNAMIC_VERSION = ['20170403', '20170403']
+    RAW_STATIC_VERSION, RAW_DYNAMIC_VERSION = ['20170117', '20170117']
     #中间结果版本
-    RELATION_VERSION = '20170403' 
+    RELATION_VERSION = '20170117' 
     
     IN_PAHT = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_two/raw/"

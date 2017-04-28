@@ -188,11 +188,13 @@ def run(relation_version):
         '''
         SELECT 
         company_name, 
-        'black' company_type  
+        'black' company_type
         FROM 
-        hongjing.raw_black_company 
-        WHERE dt={version}
-        '''.format(version=BLACK_VERSION))
+        dw.qyxg_leijinrong_blacklist
+        '''
+    ).dropDuplicates(
+        ['company_name']    
+    )
         
     #2.1 解析关联方，获取全量公司列表
     tid_df = sample_df.join(
@@ -821,28 +823,31 @@ def get_spark_session():
 if __name__ == "__main__":
     conf = configparser.ConfigParser()    
     conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.conf")
-    
+ 
+    #中间结果版本与关联方版本相同
+    RELATION_VERSION = '20170403'
+        
     #输入数据版本
-    SO_VERSION = conf.get('step_one', 'SO_VERSION')
-    BASIC_VERSION = conf.get('step_one', 'BASIC_VERSION')
-    ZHUANLI_VERSION = conf.get('step_one', 'ZHUANLI_VERSION')
-    SHANGBIAO_VERSION = conf.get('step_one', 'SHANGBIAO_VERSION')
-    DOMAIN_WEBSITE_VERSION = conf.get('step_one', 'DOMAIN_WEBSITE_VERSION')
-    BGXX_VERSION = conf.get('step_one', 'BGXX_VERSION')
-    RECRUIT_VERSION = conf.get('step_one', 'RECRUIT_VERSION')
-    ZHAOBIAO_VERSION = conf.get('step_one', 'ZHAOBIAO_VERSION')
-    ZHONGBIAO_VERSION = conf.get('step_one', 'ZHONGBIAO_VERSION')
-    KTGG_VERSION = conf.get('step_one', 'KTGG_VERSION')
-    ZGCPWSW_VERSION = conf.get('step_one', 'ZGCPWSW_VERSION')
-    RMFYGG_VERSION = conf.get('step_one', 'RMFYGG_VERSION')
-    XZCF_VERSION = conf.get('step_one', 'XZCF_VERSION')
-    ZHIXING_VERSION = conf.get('step_one', 'ZHIXING_VERSION')
-    DISHONESTY_VERSION = conf.get('step_one', 'DISHONESTY_VERSION')
-    JYYC_VERSION = conf.get('step_one', 'JYYC_VERSION')
-    CIRCXZCF_VERSION = conf.get('step_one', 'CIRCXZCF_VERSION')
-    FZJG_VERSION = conf.get('step_one', 'FZJG_VERSION')
-    BLACK_VERSION = conf.get('step_one', 'BLACK_VERSION')
-    LEIJINRONG_VERSION = conf.get('step_one', 'LEIJINRONG_VERSION')
+    SO_VERSION = RELATION_VERSION
+    BASIC_VERSION = RELATION_VERSION
+    ZHUANLI_VERSION = RELATION_VERSION
+    SHANGBIAO_VERSION = RELATION_VERSION
+    DOMAIN_WEBSITE_VERSION = RELATION_VERSION
+    BGXX_VERSION = RELATION_VERSION
+    RECRUIT_VERSION = RELATION_VERSION
+    ZHAOBIAO_VERSION = RELATION_VERSION
+    ZHONGBIAO_VERSION = RELATION_VERSION
+    KTGG_VERSION = RELATION_VERSION
+    ZGCPWSW_VERSION = RELATION_VERSION
+    RMFYGG_VERSION = RELATION_VERSION
+    XZCF_VERSION = RELATION_VERSION
+    ZHIXING_VERSION = RELATION_VERSION
+    DISHONESTY_VERSION = RELATION_VERSION
+    JYYC_VERSION = RELATION_VERSION
+    CIRCXZCF_VERSION = RELATION_VERSION
+    FZJG_VERSION = RELATION_VERSION
+    BLACK_VERSION = RELATION_VERSION
+    LEIJINRONG_VERSION = RELATION_VERSION
 
     #输入输出路径
     IN_PATH = conf.get('step_one', 'tid_in_path')
@@ -851,7 +856,4 @@ if __name__ == "__main__":
     #sparkSession
     spark = get_spark_session()
     
-    #中间结果版本
-    RELATION_VERSIONS = eval(conf.get('step_one', 'RELATION_VERSIONS'))
-    for relation_version in RELATION_VERSIONS:
-        run(relation_version)
+    run(RELATION_VERSION)

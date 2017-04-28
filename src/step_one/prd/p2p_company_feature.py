@@ -17,6 +17,38 @@ from pyspark.sql import functions as fun
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
 
+def get_p2p_feature_19(col):
+    '''
+    自动投标风险
+    '''
+    if u'不支持' in col:
+        risk = 0.
+    elif u'支持' in col:
+        risk = 100.
+    else:
+        risk = 0.
+    return risk
+
+def get_p2p_feature_20(col):
+    '''
+    债权转让
+    '''
+    if u'不可转让' in col or u'-' in col:
+        risk = 0.
+    else:
+        risk = 100.
+    return risk
+
+def get_p2p_feature_21(col):
+    '''
+    资金托管
+    '''
+    if u'无存管' in col:
+        risk = 100.
+    else:
+        risk = 0.
+    return risk
+
 def get_float(value):
     try:
         return round(float(re.search('[\d\.\,]+', 
@@ -34,6 +66,30 @@ def spark_data_flow(platform_version):
     json_to_obj_udf = fun.udf(json_to_obj, 
                               tp.MapType(tp.StringType(), tp.FloatType()))    
     get_float_udf = fun.udf(get_float, tp.FloatType())
+    get_p2p_feature_19_udf = fun.udf(get_p2p_feature_19, tp.DoubleType())
+    get_p2p_feature_20_udf = fun.udf(get_p2p_feature_20, tp.DoubleType())
+    get_p2p_feature_21_udf = fun.udf(get_p2p_feature_21, tp.DoubleType())
+    
+    raw_wdzj_df = spark.sql(
+        '''
+        SELECT
+        company_name,
+        automatic_bidding,
+        claim_transfer,
+        bank_custody
+        FROM
+        dw.qyxg_wdzj
+        WHERE
+        dt='{version}'
+        '''.format(version='20170425')
+    )
+    tid_wdzj_df = raw_wdzj_df.select(
+        'company_name',
+        get_p2p_feature_19_udf('automatic_bidding').alias('p2p_feature_19'),
+        get_p2p_feature_20_udf('claim_transfer').alias('p2p_feature_20'),
+        get_p2p_feature_21_udf('bank_custody').alias('p2p_feature_21')
+    )
+    
     platform_df = spark.sql(
         '''
         SELECT
@@ -60,7 +116,7 @@ def spark_data_flow(platform_version):
         '''.format(
             version=platform_version
         )
-    )
+    ).dropDuplicates(['company_name'])
     tid_platform_df = platform_df.select(
         'bbd_qyxx_id',
         'company_name',
@@ -94,9 +150,41 @@ def spark_data_flow(platform_version):
         get_float_udf('borrowing_dispersion').alias('p2p_feature_18'),
     )    
     
-    return tid_platform_df
+    prd_platform_df = tid_platform_df.join(
+        tid_wdzj_df,
+        tid_wdzj_df.company_name == tid_platform_df.company_name,
+        'left_outer'
+    ).select(
+        tid_platform_df.bbd_qyxx_id,
+        tid_platform_df.company_name,
+        'p2p_feature_1',
+        'p2p_feature_2',
+        'p2p_feature_3',
+        'p2p_feature_4',
+        'p2p_feature_5',
+        'p2p_feature_6',
+        'p2p_feature_7',
+        'p2p_feature_8',
+        'p2p_feature_9',
+        'p2p_feature_10',
+        'p2p_feature_11',
+        'p2p_feature_12',
+        'p2p_feature_13',
+        'p2p_feature_14',
+        'p2p_feature_15',
+        'p2p_feature_16',
+        'p2p_feature_17',
+        'p2p_feature_18',
+        tid_wdzj_df.p2p_feature_19,
+        tid_wdzj_df.p2p_feature_20,
+        tid_wdzj_df.p2p_feature_21
+    ).dropDuplicates(
+        ['company_name']
+    )
+    
+    return prd_platform_df
 
-def run(platform_version, prd_version):
+def run(platform_version, relation_version):
     '''
     格式化输出
     '''
@@ -105,11 +193,11 @@ def run(platform_version, prd_version):
         ("hadoop fs -rmr "
          "{path}/"
          "p2p_feature_distribution/{version}").format(path=OUT_PATH, 
-                                                      version=prd_version))
+                                                      version=relation_version))
     pd_df.repartition(10).write.json(
         ("{path}/"
          "p2p_feature_distribution/{version}").format(path=OUT_PATH, 
-                                                      version=prd_version))
+                                                      version=relation_version))
 def get_spark_session():
     conf = SparkConf()
     conf.setMaster('yarn-client')
@@ -143,13 +231,15 @@ def get_spark_session():
 if __name__ == '__main__':  
     #输入参数
     PLATFORM_VERSION = '20170416'
-    PRD_VERSION = "20170403"
+    #中间结果版本
+    RELATION_VERSION = '20170403' 
+    
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
     
     spark = get_spark_session()
     
     run(
         platform_version=PLATFORM_VERSION,
-        prd_version=PRD_VERSION
+        relation_version=RELATION_VERSION
     )
     

@@ -61,7 +61,7 @@ class PeFeatureConstruction(object):
         return float(risk)
     
     @__fault_tolerant
-    def get_feature_3(cls, executive_info):
+    def get_feature_3(cls, ifcareer_qualification, executive_info):
         '''
         高管从业资格风险
         '''
@@ -70,22 +70,24 @@ class PeFeatureConstruction(object):
                 return 1
             else:
                 return 0
-
-        if executive_info is not None:
-            obj = json.loads(executive_info)
-            requirements = [
-                has_qualification(
-                    each_manager_info.get(u'是否具有基金从业资格', ''))
-                for each_manager_info in obj]
-            
-            if sum(requirements) == 0:
-                risk = 100
-            elif sum(requirements) == len(requirements):
-                risk = 10
-            else: 
-                risk = 50
+        if ifcareer_qualification == u'是':
+            risk = 10
         else:
-                risk = 100
+            if executive_info is not None:
+                obj = json.loads(executive_info)
+                requirements = [
+                    has_qualification(
+                        each_manager_info.get(u'是否具有基金从业资格', ''))
+                    for each_manager_info in obj]
+                
+                if sum(requirements) == 0:
+                    risk = 100
+                elif sum(requirements) == len(requirements):
+                    risk = 10
+                else: 
+                    risk = 50
+            else:
+                    risk = 100
                 
         return float(risk)
 
@@ -110,19 +112,27 @@ class PeFeatureConstruction(object):
         return float(risk)
         
     @__fault_tolerant
-    def get_feature_5(cls, managed_fund_type):
+    def get_feature_5(cls, managed_fund_type, 
+                           application_othertype):
         '''
         基金管理类别风险
         '''
-        if managed_fund_type is None:
-            risk = 100
+        risk_distribution = {
+            u'证券投资基金': 20,
+            u'股权投资基金': 50,
+            u'创业投资基金': 70,
+            u'其他投资基金': 70
+        }
+        fund_types = managed_fund_type + application_othertype
+        
+        score_list = [
+            v 
+            for k, v in risk_distribution.iteritems() 
+            if k in fund_types]
+        if score_list:
+            risk = max(score_list)
         else:
-            if u'证券投资基金' in managed_fund_type:
-                risk = 20
-            elif u'股权投资基金' in managed_fund_type:
-                risk = 50
-            else:
-                risk = 70
+            risk = 0.
         
         return float(risk)
         
@@ -138,7 +148,7 @@ class PeFeatureConstruction(object):
                 recruit_num = int(employees)
                 if recruit_num < 10:
                     risk = 80
-                elif 10 <= risk < 50:
+                elif 10 <= recruit_num < 50:
                     risk = 50
                 elif 50 <= recruit_num:
                     risk = 30
@@ -182,13 +192,15 @@ class PeFeatureConstruction(object):
         '''
         基金规模风险
         '''
-        if (interim_after_fund is not None and 
-                interim_before_fund is not None): 
-            fund_num  = (len(set(json.loads(interim_after_fund))) + 
-                    len(set(json.loads(interim_after_fund))))
+        interim_after_fund = json.loads(interim_after_fund)
+        interim_before_fund = json.loads(interim_before_fund)
+        
+        if interim_after_fund or interim_before_fund:
+            fund_num = len(set(
+                interim_after_fund + interim_before_fund))
             risk = (1 - math.exp(-fund_num)) * 100
         else:
-            risk = 0
+            risk = 100.
         
         return float(risk)
     
@@ -202,7 +214,12 @@ class PeFeatureConstruction(object):
         else:
             risk = 10
             
-        return float(risk)
+        return dict(
+            risk=str(risk),
+            info=integrity_info.replace('\t', '') \
+                               .replace('\r', '') \
+                               .replace('rn', '')
+        )
     
     
 class SparkUdf(PeFeatureConstruction):
@@ -242,7 +259,9 @@ def spark_data_flow(smjj_version):
         'abnormal_close',
         'interim_after_fund',
         'interim_before_fund',
-        'integrity_info'
+        'integrity_info',
+        'ifcareer_qualification',
+        'application_othertype'
     ).dropDuplicates(['company_name'])
 
     udf_return_type = tp.FloatType()
@@ -254,11 +273,13 @@ def spark_data_flow(smjj_version):
         SparkUdf.define_spark_udf(
             2, udf_return_type)('legal_opinion').alias('pe_feature_2'),
         SparkUdf.define_spark_udf(
-            3, udf_return_type)('executive_info').alias('pe_feature_3'),        
+            3, udf_return_type)('ifcareer_qualification', 
+                                'executive_info').alias('pe_feature_3'),        
         SparkUdf.define_spark_udf(
             4, udf_return_type)('is_vip', 'vip_type').alias('pe_feature_4'),        
         SparkUdf.define_spark_udf(
-            5, udf_return_type)('managed_fund_type').alias('pe_feature_5'),        
+            5, udf_return_type)('managed_fund_type',
+                                'application_othertype').alias('pe_feature_5'),        
         SparkUdf.define_spark_udf(
             6, udf_return_type)('employees').alias('pe_feature_6'),        
         SparkUdf.define_spark_udf(
@@ -267,14 +288,16 @@ def spark_data_flow(smjj_version):
             8, udf_return_type)('interim_after_fund').alias('pe_feature_8'),         
         SparkUdf.define_spark_udf(
             9, udf_return_type)('interim_before_fund', 
-                                            'interim_after_fund').alias('pe_feature_9'),         
+                                'interim_after_fund').alias('pe_feature_9'),         
         SparkUdf.define_spark_udf(
-            10, udf_return_type)('integrity_info').alias('pe_feature_10')
+            10, 
+            tp.MapType(tp.StringType(), tp.StringType())
+        )('integrity_info').alias('pe_feature_10')
     )
     
     return prd_df
     
-def run(smjj_version, prd_version):
+def run(smjj_version, relation_version):
     '''
     格式化输出
     '''
@@ -283,11 +306,11 @@ def run(smjj_version, prd_version):
         ("hadoop fs -rmr "
          "{path}/"
          "pe_feature_distribution/{version}").format(path=OUT_PATH, 
-                                                     version=prd_version))
+                                                     version=relation_version))
     pd_df.repartition(10).write.json(
         ("{path}/"
          "pe_feature_distribution/{version}").format(path=OUT_PATH, 
-                                                     version=prd_version))
+                                                     version=relation_version))
 def get_spark_session():
     conf = SparkConf()
     conf.setMaster('yarn-client')
@@ -322,13 +345,15 @@ def get_spark_session():
 if __name__ == '__main__':  
     #输入参数
     SMJJ_VERSION = '20170315'
-    PRD_VERSION = "20170403"
+    #中间结果版本
+    RELATION_VERSION = '20170403' 
+    
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
 
     spark = get_spark_session()
     
     run(
         smjj_version=SMJJ_VERSION,
-        prd_version=PRD_VERSION
+        relation_version=RELATION_VERSION
     )
     

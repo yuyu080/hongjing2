@@ -122,9 +122,9 @@ def run():
 
 if __name__ == '__main__':
     #输入参数
-    RAW_STATIC_VERSION, RAW_DYNAMIC_VERSION = ['20170403', '20170403']
+    RAW_STATIC_VERSION, RAW_DYNAMIC_VERSION = ['20170117', '20170117']
     #中间结果版本
-    RELATION_VERSION = '20170403' 
+    RELATION_VERSION = '20170117' 
     
     IN_PAHT = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_two/raw/"

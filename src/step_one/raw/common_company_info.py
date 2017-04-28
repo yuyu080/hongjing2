@@ -143,7 +143,7 @@ def run():
     #国企列表
     url = "jdbc:mysql://10.10.10.12:3306/bbd_higgs?characterEncoding=UTF-8"
     prop = {"user": "reader", "password":"Hkjhsdwe35", 
-            "driver": "com.mysql.jdbc.Driver"} 
+            "driver": "com.mysql.jdbc.Driver"}
     table = "qyxx_state_owned_enterprise_background"
     so_df = spark.read.jdbc(url=url, table=table, properties=prop)
     os.system("hadoop fs -rmr \
@@ -166,7 +166,8 @@ def run():
         operate_scope,
         trim(address) address,
         enterprise_status,
-        company_province
+        company_province,
+        company_county
         FROM
         dw.qyxx_basic
         WHERE
@@ -182,7 +183,8 @@ def run():
         has_keyword_udf('operate_scope').alias('operate_scope'),
         'address',
         is_not_revoked_udf('enterprise_status').alias('enterprise_status'),
-        'company_province'
+        'company_province',
+        'company_county'
     ).cache()
     os.system("hadoop fs -rmr {path}/basic/{version}".format(version=RELATION_VERSION,
                                                              path=OUT_PATH))
@@ -656,11 +658,13 @@ def run():
         '''
         SELECT 
         company_name, 
-        'black' company_type  
+        'black' company_type
         FROM 
-        hongjing.raw_black_company 
-        WHERE dt={version}
-        '''.format(version=BLACK_VERSION))
+        dw.qyxg_leijinrong_blacklist
+        '''
+    ).dropDuplicates(
+        ['company_name']    
+    )
     #黑企业省份分布
     black_province_df  = black_df.join(
         basic_df,
@@ -746,7 +750,6 @@ if __name__ == "__main__":
     JYYC_VERSION = conf.get('step_one', 'JYYC_VERSION')
     CIRCXZCF_VERSION = conf.get('step_one', 'CIRCXZCF_VERSION')
     FZJG_VERSION = conf.get('step_one', 'CIRCXZCF_VERSION')
-    BLACK_VERSION = conf.get('step_one', 'BLACK_VERSION')
     LEIJINRONG_VERSION = conf.get('step_one', 'LEIJINRONG_VERSION')
     
     #数据输出路径

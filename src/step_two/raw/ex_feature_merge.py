@@ -7,11 +7,44 @@
 ex_feature_merge.py
 '''
 
+from pyspark.sql import functions as fun
+from pyspark.sql import types as tp
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 import os
 
+def is_black(col):
+    return 1
 
+def is_risk(col):
+    return 1    
+
+def get_ex_feature_5(col):
+    '''
+    违规会员单位风险
+    '''
+    if col == 0:
+        risk = 10.
+    elif 0 < col <= 3:
+        risk = 50.
+    else:
+        risk = 100.
+    return risk
+
+def get_ex_feature_6(col):
+    '''
+    高风险会员单位风险
+    '''
+    if col == 0:
+        risk = 10.
+    elif 0 < col <= 3:
+        risk = 30.
+    elif 3 < col <= 5:
+        risk = 60.
+    else:
+        risk = 100.
+    return risk
+    
 def get_spark_session():   
     conf = SparkConf()
     conf.setMaster('yarn-client')
@@ -36,9 +69,99 @@ def get_spark_session():
         
     return spark  
     
+def ex_supplement_flow():
+    '''
+    交易平台独有特征，需要依赖新金融的数据,用于计算会员企业风险
+    '''    
+    #黑企业名单: dw.qyxg_leijinrong_blacklist
+    is_black_udf = fun.udf(is_black, tp.IntegerType())
+    nf_black_df = spark.sql(
+        '''
+        SELECT
+        company_name
+        FROM 
+        dw.qyxg_leijinrong_blacklist
+        '''
+    ).dropDuplicates(
+        ['company_name']
+    ).withColumn(
+        'is_black', is_black_udf('company_name')
+    )
+    
+    #取新金融top5%的企业
+    is_risk_udf = fun.udf(is_risk, tp.IntegerType())
+    raw_nf_top_df = spark.read.json(
+        ("/user/antifraud/hongjing2/dataflow/step_two/prd"
+         "/nf_feature_risk_score"
+         "/{version}").format(version=RELATION_VERSION)
+    ).select(
+        'company_name',
+        'total_score'
+    ).cache()
+    top_num = int(raw_nf_top_df.count() * 0.05)
+    tid_nf_top_df = raw_nf_top_df \
+        .sort(raw_nf_top_df.total_score.desc()) \
+        .limit(top_num)
+    prd_nf_top_df = tid_nf_top_df.withColumn(
+        'is_risk', is_risk_udf('company_name')
+    ).dropDuplicates(
+        ['company_name']
+    )
+    
+    #会员名单: dw.qyxg_ex_member_list
+    raw_ex_member_df = spark.sql(
+        '''
+        SELECT
+        exchange_name,
+        company_name
+        FROM
+        dw.qyxg_ex_member_list
+        WHERE
+        dt='{version}'
+        '''.format(version=EX_MEMBER_VERSION)
+    ).dropDuplicates(
+        ['exchange_name', 'company_name']
+    )
+    
+    tid_ex_member_df = raw_ex_member_df.join(
+        nf_black_df,
+        nf_black_df.company_name == raw_ex_member_df.company_name,
+        'left_outer'
+    ).join(
+        prd_nf_top_df,
+        prd_nf_top_df.company_name == raw_ex_member_df.company_name,
+        'left_outer'
+    ).select(
+        raw_ex_member_df.exchange_name,
+        raw_ex_member_df.company_name,
+        nf_black_df.is_black,
+        prd_nf_top_df.is_risk
+    )
+    
+    prd_ex_member_df = tid_ex_member_df \
+        .fillna(0) \
+        .groupBy('exchange_name') \
+        .agg({'is_black': 'sum', 'is_risk': 'sum'}) \
+        .withColumnRenamed('sum(is_black)', 'black_num') \
+        .withColumnRenamed('sum(is_risk)', 'risk_num')
+        
+    get_ex_feature_5_udf = fun.udf(get_ex_feature_5, tp.DoubleType())
+    get_ex_feature_6_udf = fun.udf(get_ex_feature_6, tp.DoubleType())
+    
+    prd_ex_member_df = prd_ex_member_df.select(
+        prd_ex_member_df.exchange_name.alias('company_name'),
+        'black_num',
+        'risk_num',
+        get_ex_feature_5_udf('black_num').alias('ex_feature_5'),
+        get_ex_feature_6_udf('risk_num').alias('ex_feature_6')
+    )
+    
+    return prd_ex_member_df
+    
+    
 def spark_data_flow(static_version, dynamic_version, relation_version):
     '''
-    合并静态、动态风险特征与p2p行业风险特征
+    合并静态、动态风险特征与交易平台风险特征
     '''
     static_df = spark.read.json(        
         "{path}/"
@@ -52,6 +175,9 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
         "{path}/"
         "ex_feature_distribution/{version}".format(path=IN_PAHT, 
                                                    version=relation_version))
+    #交易平台的补充指标
+    ex_supplement_df = ex_supplement_flow()
+    
     raw_df = ex_df.join(
         static_df,
         static_df.company_name == ex_df.company_name,
@@ -60,12 +186,19 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
         dynamic_df,
         dynamic_df.company_name == ex_df.company_name,
         'left_outer'
+    ).join(
+        ex_supplement_df,
+        ex_supplement_df.company_name == ex_df.company_name,
+        'left_outer'
     ).select(
         ex_df.bbd_qyxx_id
         ,ex_df.company_name
         ,'ex_feature_1'
         ,'ex_feature_2'
         ,'ex_feature_3'
+        ,'ex_feature_4'
+        ,ex_supplement_df.ex_feature_5
+        ,ex_supplement_df.ex_feature_6
         ,'feature_1'
         ,'feature_2'
         ,'feature_3'
@@ -114,9 +247,11 @@ def run():
 
 if __name__ == '__main__':
     #输入参数
-    RAW_STATIC_VERSION, RAW_DYNAMIC_VERSION = ['20170403', '20170403']
+    RAW_STATIC_VERSION, RAW_DYNAMIC_VERSION = ['20170117', '20170117']
+    #交易平台日期
+    EX_MEMBER_VERSION = '20170423'
     #中间结果版本
-    RELATION_VERSION = '20170403' 
+    RELATION_VERSION = '20170117' 
     
     IN_PAHT = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_two/raw/"

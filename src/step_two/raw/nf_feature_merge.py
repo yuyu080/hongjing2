@@ -4,7 +4,7 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
-common_feature_merge.py
+nf_feature_merge.py
 '''
 
 
@@ -29,7 +29,7 @@ def get_spark_session():
     
     spark = SparkSession \
         .builder \
-        .appName("hgongjing2_two_raw_common_feature_merge") \
+        .appName("hgongjing2_two_raw_nf_feature_merge") \
         .config(conf = conf) \
         .enableHiveSupport() \
         .getOrCreate()  
@@ -38,7 +38,7 @@ def get_spark_session():
 
 def spark_data_flow(static_version, dynamic_version):
     '''
-    合并静态与动态风险：当动态风险不存时，其值取0
+    合并静态与动态风险：当动态风险不存时，值为null，类型为srtuct
     '''
     static_df = spark.read.json(        
         "{path}/"
@@ -48,6 +48,10 @@ def spark_data_flow(static_version, dynamic_version):
         "{path}/"
         "common_dynamic_feature_distribution/{version}".format(path=IN_PAHT, 
                                                                version=dynamic_version))
+
+    #这里需要一个样本df，将新金融企业选出来
+    #ef: emerging_finance
+    new_finance_df = None
 
     feature_df = static_df.join(
         dynamic_df,
@@ -63,7 +67,7 @@ def spark_data_flow(static_version, dynamic_version):
          'feature_24','feature_3','feature_4','feature_5',
          'feature_6','feature_7','feature_8','feature_9',
          'feature_25', 'feature_26', 'feature_27', 'feature_28']
-    ).fillna(0) \
+    )
 
     return feature_df
     
@@ -73,17 +77,19 @@ def run():
     os.system(
         ("hadoop fs -rmr " 
          "{path}/"
-         "common_feature_merge/{version}").format(path=OUT_PATH, 
-                                                  version=RAW_VERSION))    
+         "nf_feature_merge/{version}").format(path=OUT_PATH, 
+                                                  version=RELATION_VERSION))    
     raw_df.repartition(10).write.parquet(         
         ("{path}/"
-         "common_feature_merge/{version}").format(path=OUT_PATH, 
-                                                  version=RAW_VERSION))  
+         "nf_feature_merge/{version}").format(path=OUT_PATH, 
+                                                  version=RELATION_VERSION))
     
 if __name__ == '__main__':
     #输入参数
-    RAW_STATIC_VERSION, RAW_DYNAMIC_VERSION = ['20170403', '20170403']
-    RAW_VERSION = '20170403'
+    RAW_STATIC_VERSION, RAW_DYNAMIC_VERSION = ['20170117', '20170117']
+    #中间结果版本
+    RELATION_VERSION = '20170117' 
+    
     IN_PAHT = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_two/raw/"
     

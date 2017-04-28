@@ -11,7 +11,6 @@ common_company_dynamic_feature.py
 import json
 import os
 from collections import Counter
-import configparser
 
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
@@ -176,13 +175,13 @@ def get_dynamic_risk(data):
     #平台稳态运营风险
     if old_data['feature_25']['nature_person_num']:
         nature_person_risk = ((new_data['feature_25']['nature_person_num'] - 
-                                   old_data['feature_25']['nature_person_num']) / 
+                               old_data['feature_25']['nature_person_num']) / 
                               old_data['feature_25']['nature_person_num'])
     else:
         nature_person_risk = 0.
     if old_data['feature_25']['legal_person_num']:
         legal_person_risk = ((new_data['feature_25']['legal_person_num'] - 
-                                  old_data['feature_25']['legal_person_num']) / 
+                              old_data['feature_25']['legal_person_num']) / 
                              old_data['feature_25']['legal_person_num'])
     else:
         legal_person_risk = 0.
@@ -214,9 +213,15 @@ def get_dynamic_risk(data):
         
     return dict(
         feature_25={'p': round(feature_25, 2)},
-        feature_26={'h': round(feature_26, 2)},
-        feature_27={'c': round(feature_27, 2)},
-        feature_28={'k': round(feature_28, 2)}
+        feature_26={'h': round(feature_26, 2),
+                    'x': old_data['feature_26']['kernel_control_num'],
+                    'y': new_data['feature_26']['kernel_control_num']},
+        feature_27={'c': round(feature_27, 2),
+                    'x': old_data['feature_27']['ratio'],
+                    'y': new_data['feature_27']['ratio']},
+        feature_28={'k': round(feature_28, 2),
+                    'x': old_data['feature_28']['province_top4_num'],
+                    'y': new_data['feature_28']['province_top4_num']}
     )
     
 def get_spark_session():   
@@ -252,13 +257,15 @@ def spark_data_flow(tid_old_version, tid_new_version):
     #算法设计直接用rdd
     tid_old_df = spark.read.parquet(
         ("{path}/"
-        "common_company_info_merge/{version}").format(path=IN_PATH,
-                                                      version=tid_old_version))
+         "common_company_info_merge/"
+         "{version}").format(path=IN_PATH,
+                             version=tid_old_version))
     tid_old_rdd = tid_old_df.rdd
     tid_new_df = spark.read.parquet(
         ("{path}/"
-        "common_company_info_merge/{version}").format(path=IN_PATH,
-                                                      version=tid_new_version))
+         "common_company_info_merge/"
+         "{version}").format(path=IN_PATH,
+                             version=tid_new_version))
     tid_new_rdd = tid_new_df.rdd    
         
     #最终计算流程
@@ -299,36 +306,39 @@ def run(tid_old_version, tid_new_version):
     dynamic_risk_data = spark_data_flow(tid_old_version, tid_new_version)
     os.system(
         ("hadoop fs -rmr "
-        "{path}/"
-        "common_dynamic_feature_distribution/{version}").format(path=OUT_PATH, 
-                                                                version=tid_new_version))
+         "{path}/"
+         "common_dynamic_feature_distribution/"
+         "{version}").format(path=OUT_PATH, 
+                             version=tid_new_version))
     dynamic_risk_data.repartition(10).saveAsTextFile(
         ("{path}/"
-        "common_dynamic_feature_distribution/{version}").format(path=OUT_PATH, 
-                                                                version=tid_new_version))
+         "common_dynamic_feature_distribution/"
+         "{version}").format(path=OUT_PATH, 
+                             version=tid_new_version))
  
     
 if __name__ == '__main__':  
-    conf = configparser.ConfigParser()    
-    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.conf")
-    
     #输入参数
-    IN_PATH = conf.get('step_one', 'prd_in_path')
-    OUT_PATH = conf.get('step_one', 'prd_out_path')
-    STATIC_FILE = ("/data5/antifraud/Hongjing2.0/src/step_one/prd/"
+    IN_PATH = "/user/antifraud/hongjing2/dataflow/step_one/tid/"
+    OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
+    STATIC_FILE = ("/data5/antifraud/Hongjing2/src/step_one/prd/"
                    "common_company_static_feature.py")
     
     spark = get_spark_session()
 
+    run(tid_old_version='20170117', 
+        tid_new_version='20170117')
     
-    RELATION_VERSIONS = eval(conf.get('step_one', 'RELATION_VERSIONS'))
-    for index, relation_version in RELATION_VERSIONS:
-        if index < 3:
-            tid_old_version = RELATION_VERSIONS[0]
-            tid_new_version = relation_version
-        else:
-            tid_old_version = RELATION_VERSIONS[index-3]
-            tid_new_version = relation_version
+#==============================================================================
+#     RELATION_VERSIONS = eval(conf.get('step_one', 'RELATION_VERSIONS'))
+#     for index, relation_version in RELATION_VERSIONS:
+#         if index < 3:
+#             tid_old_version = RELATION_VERSIONS[0]
+#             tid_new_version = relation_version
+#         else:
+#             tid_old_version = RELATION_VERSIONS[index-3]
+#             tid_new_version = relation_version
+#==============================================================================
             
-        run(tid_old_version, tid_new_version)
+        
 

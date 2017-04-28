@@ -107,7 +107,7 @@ class ExFeatureConstruction(object):
         def get_sp_float(data):
             try:
                 return round(float(re.search('[\d\.\,]+%', 
-                                               data).group().replace('%', '')), 2)
+                                             data).group().replace('%', '')), 2)
             except:
                 return 0.            
         
@@ -137,7 +137,7 @@ class ExFeatureConstruction(object):
         交易品种风险
         '''
         obj = json.loads(trading_variety_info)
-        data = [each_line.get('交易品种', '')
+        data = [each_line.get(u'交易品种', '')
                      for each_line in obj]
         
         for each_breed_name in data:         
@@ -155,14 +155,14 @@ class ExFeatureConstruction(object):
     @__fault_tolerant
     def get_feature_5(cls, legal_opinion):
         '''
-        违规会员单位风险
+        违规会员单位风险，必须在step_two中计算
         '''
         pass
 
     @__fault_tolerant
     def get_feature_6(cls, legal_opinion):
         '''
-        高风险会员单位风险
+        高风险会员单位风险，必须在step_two中计算
         '''
         pass
     
@@ -189,7 +189,7 @@ def spark_data_flow(exchange_version):
         WHERE
         dt='{version}'
         '''.format(version=exchange_version)
-    )
+    ).dropDuplicates(['company_name'])
     udf_return_type = tp.FloatType()
     tid_df = exchange_df.select(
         'bbd_qyxx_id',
@@ -206,7 +206,7 @@ def spark_data_flow(exchange_version):
     
     return tid_df
     
-def run(exchange_version, prd_version):
+def run(exchange_version, relation_version):
     '''
     格式化输出
     '''
@@ -215,11 +215,11 @@ def run(exchange_version, prd_version):
         ("hadoop fs -rmr "
          "{path}/"
          "ex_feature_distribution/{version}").format(path=OUT_PATH, 
-                                                     version=prd_version))
+                                                     version=relation_version))
     pd_df.repartition(10).write.json(
         ("{path}/"
          "ex_feature_distribution/{version}").format(path=OUT_PATH, 
-                                                     version=prd_version))
+                                                     version=relation_version))
 def get_spark_session():
     conf = SparkConf()
     conf.setMaster('yarn-client')
@@ -253,13 +253,15 @@ def get_spark_session():
 if __name__ == '__main__':  
     #输入参数
     EXCHANGE_VERSION = '20170416'
-    PRD_VERSION = "20170403"
+    #中间结果版本
+    RELATION_VERSION = '20170403'    
+    
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
     
     spark = get_spark_session()
     
     run(
         exchange_version=EXCHANGE_VERSION,
-        prd_version=PRD_VERSION
+        relation_version=RELATION_VERSION
     )
     
