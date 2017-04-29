@@ -29,7 +29,7 @@ def is_new(col):
     企业是否是新进入企业
     '''
     for each_info in col:
-        if NEW_VERSION in col:
+        if NEW_VERSION in each_info:
             return 1
     else:
         return 0
