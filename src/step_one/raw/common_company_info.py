@@ -6,9 +6,10 @@
 --deploy-mode client \
 --jars /usr/share/java/mysql-connector-java-5.1.39.jar \
 --driver-class-path /usr/share/java/mysql-connector-java-5.1.39.jar \
-common_company_info.py
-
+common_company_info.py {version}
 '''
+import os
+import sys
 
 import configparser
 from pyspark.conf import SparkConf
@@ -16,7 +17,7 @@ from pyspark.sql import functions as fun
 from pyspark.sql import types as tp
 from pyspark.sql import Row
 from pyspark.sql import SparkSession
-import os
+
 
 
 def add_col(one_col, two_col):
@@ -123,21 +124,9 @@ def run():
     is_not_revoked_udf = fun.udf(is_not_revoked, tp.IntegerType())
     has_keyword_udf = fun.udf(has_keyword, tp.StringType())
 
-    #原始样本
-    sample_df = spark.sql(
-        '''
-        SELECT
-        company company_name
-        FROM
-        hongjing.raw_company_namefrag
-        WHERE
-        dt='20170320_quanguo'
-        '''
-    )
-    os.system("hadoop fs -rmr {path}/ljr_sample/{version}".format(version=LEIJINRONG_VERSION,
-                                                                  path=OUT_PATH))
-    sample_df.repartition(10).write.parquet(
-        "{path}/ljr_sample/{version}".format(version=LEIJINRONG_VERSION,
+    #原始样本,由step_zero_prd得到
+    sample_df = spark.read.parquet(
+        "{path}/ljr_sample/{version}".format(version=SAMPLE_VERSION,
                                              path=OUT_PATH))
     
     #国企列表
@@ -688,21 +677,12 @@ def run():
         "{path}/black_province/{version}".format(version=RELATION_VERSION, 
                                                  path=OUT_PATH))
     
-    
     #类金融名单
-    leijinrong_df = spark.sql(
-        '''
-        SELECT 
-        company 
-        FROM 
-        hongjing.raw_company_namefrag 
-        WHERE
-        dt='{version}'
-        '''.format(version=LEIJINRONG_VERSION))
+    sample_df
     #类金融企业省份分布
-    leijinrong_province_df  = leijinrong_df.join(
+    leijinrong_province_df  = sample_df.join(
         basic_df,
-        basic_df.company_name == leijinrong_df.company,
+        basic_df.company_name == sample_df.company_name,
     ).select(
         basic_df.company_name,
         basic_df.company_province
@@ -726,34 +706,33 @@ def run():
     
 if __name__ == "__main__":
     conf = configparser.ConfigParser()    
-    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.conf")
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
 
     #关联方版本
-    RELATION_VERSION = '20170403'    
+    RELATION_VERSION = sys.argv[1]
     
     #输入数据版本
-    SO_VERSION = conf.get('step_one', 'SO_VERSION')
-    BASIC_VERSION = conf.get('step_one', 'BASIC_VERSION')
-    ZHUANLI_VERSION = conf.get('step_one', 'ZHUANLI_VERSION')
-    SHANGBIAO_VERSION = conf.get('step_one', 'SHANGBIAO_VERSION')
-    DOMAIN_WEBSITE_VERSION = conf.get('step_one', 'DOMAIN_WEBSITE_VERSION')
-    BGXX_VERSION = conf.get('step_one', 'BGXX_VERSION')
-    RECRUIT_VERSION = conf.get('step_one', 'RECRUIT_VERSION')
-    ZHAOBIAO_VERSION = conf.get('step_one', 'ZHAOBIAO_VERSION')
-    ZHONGBIAO_VERSION = conf.get('step_one', 'ZHONGBIAO_VERSION')
-    KTGG_VERSION = conf.get('step_one', 'KTGG_VERSION')
-    ZGCPWSW_VERSION = conf.get('step_one', 'ZGCPWSW_VERSION')
-    RMFYGG_VERSION = conf.get('step_one', 'RMFYGG_VERSION')
-    XZCF_VERSION = conf.get('step_one', 'XZCF_VERSION')
-    ZHIXING_VERSION = conf.get('step_one', 'ZHIXING_VERSION')
-    DISHONESTY_VERSION = conf.get('step_one', 'DISHONESTY_VERSION')
-    JYYC_VERSION = conf.get('step_one', 'JYYC_VERSION')
-    CIRCXZCF_VERSION = conf.get('step_one', 'CIRCXZCF_VERSION')
-    FZJG_VERSION = conf.get('step_one', 'CIRCXZCF_VERSION')
-    LEIJINRONG_VERSION = conf.get('step_one', 'LEIJINRONG_VERSION')
+    BASIC_VERSION = conf.get('common_company_info', 'BASIC_VERSION')
+    ZHUANLI_VERSION = conf.get('common_company_info', 'ZHUANLI_VERSION')
+    SHANGBIAO_VERSION = conf.get('common_company_info', 'SHANGBIAO_VERSION')
+    DOMAIN_WEBSITE_VERSION = conf.get('common_company_info', 'DOMAIN_WEBSITE_VERSION')
+    BGXX_VERSION = conf.get('common_company_info', 'BGXX_VERSION')
+    RECRUIT_VERSION = conf.get('common_company_info', 'RECRUIT_VERSION')
+    ZHAOBIAO_VERSION = conf.get('common_company_info', 'ZHAOBIAO_VERSION')
+    ZHONGBIAO_VERSION = conf.get('common_company_info', 'ZHONGBIAO_VERSION')
+    KTGG_VERSION = conf.get('common_company_info', 'KTGG_VERSION')
+    ZGCPWSW_VERSION = conf.get('common_company_info', 'ZGCPWSW_VERSION')
+    RMFYGG_VERSION = conf.get('common_company_info', 'RMFYGG_VERSION')
+    XZCF_VERSION = conf.get('common_company_info', 'XZCF_VERSION')
+    ZHIXING_VERSION = conf.get('common_company_info', 'ZHIXING_VERSION')
+    DISHONESTY_VERSION = conf.get('common_company_info', 'DISHONESTY_VERSION')
+    JYYC_VERSION = conf.get('common_company_info', 'JYYC_VERSION')
+    CIRCXZCF_VERSION = conf.get('common_company_info', 'CIRCXZCF_VERSION')
+    FZJG_VERSION = conf.get('common_company_info', 'CIRCXZCF_VERSION')
+    SAMPLE_VERSION = RELATION_VERSION
     
     #数据输出路径
-    OUT_PATH = conf.get('step_one', 'raw_out_path')
+    OUT_PATH = conf.get('common_company_info', 'OUT_PATH')
 
     #sparkSession
     spark = get_spark_session()

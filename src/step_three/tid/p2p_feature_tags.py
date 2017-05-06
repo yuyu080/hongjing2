@@ -4,9 +4,9 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
-p2p_feature_tags.py
+p2p_feature_tags.py {version}
 '''
-
+import sys
 import os
 import json
 
@@ -19,7 +19,12 @@ def get_tags(row):
     
     def get_platform_compliance_risk(risk_name=u"平台合规性风险"):
         tags = []
-    #合规性风险暂时无法计算
+        if row['p2p_feature_19'] == 100:
+            tags.append(u'可自动投标')
+        if row['p2p_feature_20'] == 100:
+            tags.append(u'可债权转让')
+        if row['p2p_feature_21'] == 100:
+            tags.append(u'未经银行托管')
         return {
             risk_name: tags
         }
@@ -68,6 +73,9 @@ def get_tags(row):
             tags.append(u'公司成立时间较短')
         if row['feature_18']['d'] >= 3:
             tags.append(u'分支机构数量较多')
+        if (row['feature_7']['e'] and 
+                row['feature_7']['e_1'] / row['feature_7']['e'] >= 0.5):
+            tags.append(u'大专及大专以下或不限专业招聘比例较高')
         return {
             risk_name: tags
         }
@@ -106,6 +114,7 @@ def get_tags(row):
                 if k in ['0', '1', '2', '3']])         
     def get_relationship_risk(risk_name=u'平台关联方风险'):
         tags = []
+        #静态
         if get_all_nums('feature_10') >= 8 :
             tags.append(u'关联方诉讼文书数量较多')
         if get_some_nums('feature_11', 'xzcf'):
@@ -139,6 +148,19 @@ def get_tags(row):
         if (row['feature_23']['b_1'] + row['feature_23']['b_2'] + 
                 row['feature_23']['b_3']) :
             tags.append(u'关联方中存在黑名单企业')
+        #动态
+        if (row['feature_25'] and row['feature_26'] and 
+                row['feature_27'] and row['feature_28']):
+            if (row['feature_24']['x_1'] + row['feature_24']['x_2'] +
+                    row['feature_24']['x_3']) >= 5:
+                tags.append(u'关联方新成立子公司数量较多')
+            if abs(row['feature_26']['x']-row['feature_26']['y']) >= 6:
+                tags.append(u'核心自然人控制节点数量变化较大')
+            if abs(row['feature_27']['x']-row['feature_27']['y']) >= 0.1:
+                tags.append(u'利益一致行动法人占比变化较大')
+            if abs(row['feature_28']['x']-row['feature_28']['y']) >= 5:
+                tags.append(u'关联方聚集区域关联节点数量变化较大')
+
         return {
             risk_name: tags
         }
@@ -154,7 +176,20 @@ def get_tags(row):
         result.update({u"综合实力风险": []})
         result.update({u'声誉风险': []})
         result.update({u'平台关联方风险': []})
+
+    final_out_dict = {
+        row['platform_name']: result
+    }
         
+    return final_out_dict
+
+def merge_each_platform(iter_obj):
+    '''
+    合并P2P行业多个平台的tags
+    '''
+    result = {}
+    for each_dict in iter_obj:
+        result.update(each_dict)
     return json.dumps(result, ensure_ascii=False)
 
 def spark_data_flow():
@@ -166,12 +201,19 @@ def spark_data_flow():
          "/p2p_info_merge/{version}").format(version=RELATION_VERSION))
     
     tid_p2p_feature_df = raw_p2p_feature_df.rdd.map(
-        lambda r: Row(
-            company_name=r['company_name'],
-            bbd_qyxx_id=r['bbd_qyxx_id'],
-            risk_tags=get_tags(r)
+        lambda r: (
+            (r['company_name'], r['bbd_qyxx_id']),
+            get_tags(r)
+        )
+    ).groupByKey(
+    ).map(
+        lambda (k, iter_obj): Row(
+            company_name=k[0],
+            bbd_qyxx_id=k[1],
+            risk_tags=merge_each_platform(iter_obj)
         )
     ).toDF()
+        
     prd_p2p_feature_df = tid_p2p_feature_df.join(
         p2p_info_df,
         p2p_info_df.company_name == tid_p2p_feature_df.company_name
@@ -185,6 +227,8 @@ def spark_data_flow():
         p2p_info_df.city,
         p2p_info_df.county,
         p2p_info_df.is_black
+    ).dropDuplicates(
+        ['company_name']
     )
     return prd_p2p_feature_df
 
@@ -226,7 +270,7 @@ def get_spark_session():
 
 if __name__ == '__main__':
     #中间结果版本
-    RELATION_VERSION = '20170117' 
+    RELATION_VERSION = sys.argv[1]
     
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_three/tid/"
     

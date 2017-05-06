@@ -4,10 +4,10 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
-common_company_dynamic_feature.py
+common_company_dynamic_feature.py {version}
 
 '''
-
+import sys
 import json
 import os
 from collections import Counter
@@ -326,19 +326,6 @@ if __name__ == '__main__':
     
     spark = get_spark_session()
 
-    run(tid_old_version='20170117', 
-        tid_new_version='20170117')
+    run(tid_old_version=sys.argv[1], 
+        tid_new_version=sys.argv[2])
     
-#==============================================================================
-#     RELATION_VERSIONS = eval(conf.get('step_one', 'RELATION_VERSIONS'))
-#     for index, relation_version in RELATION_VERSIONS:
-#         if index < 3:
-#             tid_old_version = RELATION_VERSIONS[0]
-#             tid_new_version = relation_version
-#         else:
-#             tid_old_version = RELATION_VERSIONS[index-3]
-#             tid_new_version = relation_version
-#==============================================================================
-            
-        
-

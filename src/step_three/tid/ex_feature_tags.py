@@ -4,9 +4,9 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
-ex_feature_tags.py
+ex_feature_tags.py {version}
 '''
-
+import sys
 import os
 import json
 
@@ -17,13 +17,9 @@ from pyspark.sql import Row
 def get_tags(row):
     def get_ex_trading_risk(risk_name=u'交易风险'):
         tags = []
-        if 60 <= row['ex_feature_1'] < 100:
-            tags.append(u'交易价格日波动允许超过10%')
         if row['ex_feature_1'] == 100:
-            tags.append(u'交易价格日波动不设限')
-        if row['ex_feature_2'] >= 30:
             tags.append(u'最低保证金率小于10%')
-        if row['ex_feature_4'] == 100:
+        if row['ex_feature_2'] == 100:
             tags.append(u'交易品种中包含原油或石油品种')
         return {
             risk_name: tags
@@ -31,6 +27,12 @@ def get_tags(row):
     
     def get_ex_company_risk(risk_name=u'会员企业风险'):
         tags = []
+        if row['ex_feature_3'] == 100:
+            tags.append(u'会员企业存在黑名单企业')
+        if row['ex_feature_4'] == 100:
+            tags.append(u'会员企业存在高风险企业')
+        if row['ex_feature_4'] == 50:
+            tags.append(u'会员企业存在较多高风险企业')
         return {
             risk_name: tags
         }
@@ -158,7 +160,11 @@ def get_tags(row):
     else:
         result.update({u'动态关联方风险': []}) 
         
-    return json.dumps(result, ensure_ascii=False)
+    final_out_dict = {
+        '--': result
+    }
+        
+    return json.dumps(final_out_dict, ensure_ascii=False)
 
 def spark_data_flow():
     raw_ex_feature_df = spark.read.parquet(
@@ -229,7 +235,7 @@ def get_spark_session():
 
 if __name__ == '__main__':
     #中间结果版本
-    RELATION_VERSION = '20170117' 
+    RELATION_VERSION = sys.argv[1]
     
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_three/tid/"
     

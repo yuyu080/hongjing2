@@ -4,9 +4,9 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
-nf_feature_tags.py
+nf_feature_tags.py {version}
 '''
-
+import sys
 import os
 import json
 
@@ -144,7 +144,11 @@ def get_tags(row):
     else:
         result.update({u'动态关联方风险': []})
         
-    return json.dumps(result, ensure_ascii=False)
+    final_out_dict = {
+        '--': result
+    }
+    
+    return json.dumps(final_out_dict, ensure_ascii=False)
 
 def spark_data_flow():
     raw_nf_feature_df = spark.read.parquet(
@@ -218,7 +222,7 @@ def get_spark_session():
 
 if __name__ == '__main__':
     #中间结果版本
-    RELATION_VERSION = '20170117' 
+    RELATION_VERSION = sys.argv[1]
     
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_three/tid/"
     

@@ -4,9 +4,9 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
-pe_feature_tags.py
+pe_feature_tags.py {version}
 '''
-
+import sys
 import os
 import math
 import json
@@ -177,8 +177,12 @@ def get_tags(row):
         result[u'机构关联方风险'] = get_static_organization_relationship_risk()
     else:
         result[u'机构关联方风险'] = []
+
+    final_out_dict = {
+        '--': result
+    }
         
-    return json.dumps(result, ensure_ascii=False)
+    return json.dumps(final_out_dict, ensure_ascii=False)
 
 def spark_data_flow():
     raw_pe_feature_df = spark.read.parquet(
@@ -249,7 +253,7 @@ def get_spark_session():
 
 if __name__ == '__main__':
     #中间结果版本
-    RELATION_VERSION = '20170117' 
+    RELATION_VERSION = sys.argv[1]
     
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_three/tid/"
     

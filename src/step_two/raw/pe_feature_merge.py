@@ -4,12 +4,14 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
-pe_feature_merge.py
+pe_feature_merge.py {version}
 '''
+import os
+import sys
 
+import configparser
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
-import os
 
 
 def get_spark_session():   
@@ -107,24 +109,25 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
     return raw_df
 
 def run():
-    raw_df = spark_data_flow(static_version=RAW_STATIC_VERSION, 
-                             dynamic_version=RAW_DYNAMIC_VERSION,
+    raw_df = spark_data_flow(static_version=RELATION_VERSION, 
+                             dynamic_version=RELATION_VERSION,
                              relation_version=RELATION_VERSION)
     os.system(
         ("hadoop fs -rmr " 
          "{path}/"
          "pe_feature_merge/{version}").format(path=OUT_PATH, 
                                               version=RELATION_VERSION))    
-    raw_df.repartition(10).write.parquet(         
+    raw_df.repartition(10).write.parquet(        
         ("{path}/"
          "pe_feature_merge/{version}").format(path=OUT_PATH, 
                                               version=RELATION_VERSION))
 
 if __name__ == '__main__':
+    conf = configparser.ConfigParser()    
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
+    
     #输入参数
-    RAW_STATIC_VERSION, RAW_DYNAMIC_VERSION = ['20170117', '20170117']
-    #中间结果版本
-    RELATION_VERSION = '20170117' 
+    RELATION_VERSION = sys.argv[1]
     
     IN_PAHT = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_two/raw/"

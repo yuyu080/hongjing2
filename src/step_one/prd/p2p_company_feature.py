@@ -4,14 +4,15 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
-p2p_company_feature.py
+p2p_company_feature.py {version}
 
 '''
-
+import sys
 import json
 import re
 import os
 
+import configparser
 from pyspark.sql import types as tp
 from pyspark.sql import functions as fun
 from pyspark.conf import SparkConf
@@ -61,30 +62,45 @@ def json_to_obj(col):
     obj = {k: get_float(v) for k, v in obj.iteritems()}
     return obj
 
+def get_unique_string(col1, col2):
+    '''
+    在outer join后，返回唯一的一个值
+    '''
+    if col1:
+        return col1
+    else:
+        return col2
 
-def spark_data_flow(platform_version):
+def spark_data_flow():
     json_to_obj_udf = fun.udf(json_to_obj, 
                               tp.MapType(tp.StringType(), tp.FloatType()))    
     get_float_udf = fun.udf(get_float, tp.FloatType())
     get_p2p_feature_19_udf = fun.udf(get_p2p_feature_19, tp.DoubleType())
     get_p2p_feature_20_udf = fun.udf(get_p2p_feature_20, tp.DoubleType())
     get_p2p_feature_21_udf = fun.udf(get_p2p_feature_21, tp.DoubleType())
+    get_unique_string_udf = fun.udf(get_unique_string, tp.StringType())    
     
     raw_wdzj_df = spark.sql(
         '''
         SELECT
+        bbd_qyxx_id,
         company_name,
+        platform_name,
         automatic_bidding,
         claim_transfer,
-        bank_custody
+        bank_custody,
+        platform_state
         FROM
         dw.qyxg_wdzj
         WHERE
         dt='{version}'
-        '''.format(version='20170425')
+        '''.format(version=WDZJ_VERSION)
     )
     tid_wdzj_df = raw_wdzj_df.select(
+        'bbd_qyxx_id',
         'company_name',
+        'platform_name',
+        'platform_state',
         get_p2p_feature_19_udf('automatic_bidding').alias('p2p_feature_19'),
         get_p2p_feature_20_udf('claim_transfer').alias('p2p_feature_20'),
         get_p2p_feature_21_udf('bank_custody').alias('p2p_feature_21')
@@ -95,6 +111,7 @@ def spark_data_flow(platform_version):
         SELECT
         bbd_qyxx_id
         ,company_name
+        ,platform_name
         ,per_lending_amount
         ,avg_soldout_time 
         ,total_num_of_lender 
@@ -109,17 +126,20 @@ def spark_data_flow(platform_version):
         ,loan_balance 
         ,per_borrowing_amount 
         ,borrowing_dispersion 
+        ,platform_state
         FROM
         dw.qyxg_platform_data
         WHERE
         dt = '{version}'
         '''.format(
-            version=platform_version
+            version=PLATFORM_VERSION
         )
-    ).dropDuplicates(['company_name'])
+    )
     tid_platform_df = platform_df.select(
         'bbd_qyxx_id',
         'company_name',
+        'platform_name',
+        'platform_state',
         get_float_udf('per_lending_amount').alias('p2p_feature_1'),
         get_float_udf('avg_soldout_time').alias('p2p_feature_2'),
         get_float_udf('total_num_of_lender').alias('p2p_feature_3'),
@@ -148,15 +168,30 @@ def spark_data_flow(platform_version):
         get_float_udf('loan_balance').alias('p2p_feature_16'),
         get_float_udf('per_borrowing_amount').alias('p2p_feature_17'),
         get_float_udf('borrowing_dispersion').alias('p2p_feature_18'),
-    )    
+    )
     
     prd_platform_df = tid_platform_df.join(
         tid_wdzj_df,
-        tid_wdzj_df.company_name == tid_platform_df.company_name,
-        'left_outer'
+        [tid_platform_df.platform_name == tid_wdzj_df.platform_name,
+         tid_platform_df.company_name == tid_wdzj_df.company_name],
+        'outer'
     ).select(
-        tid_platform_df.bbd_qyxx_id,
-        tid_platform_df.company_name,
+        get_unique_string_udf(
+            tid_platform_df.bbd_qyxx_id,
+            tid_wdzj_df.bbd_qyxx_id
+        ).alias('bbd_qyxx_id'),
+        get_unique_string_udf(
+            tid_platform_df.company_name,
+            tid_wdzj_df.company_name
+        ).alias('company_name'),
+        get_unique_string_udf(
+            tid_platform_df.platform_name,
+            tid_wdzj_df.platform_name
+        ).alias('platform_name'),
+        get_unique_string_udf(
+            tid_platform_df.platform_state,
+            tid_wdzj_df.platform_state
+        ).alias('platform_state'),
         'p2p_feature_1',
         'p2p_feature_2',
         'p2p_feature_3',
@@ -179,16 +214,18 @@ def spark_data_flow(platform_version):
         tid_wdzj_df.p2p_feature_20,
         tid_wdzj_df.p2p_feature_21
     ).dropDuplicates(
-        ['company_name']
+        ['company_name', 'platform_name']
+    ).fillna(
+        0
     )
     
     return prd_platform_df
 
-def run(platform_version, relation_version):
+def run(relation_version):
     '''
     格式化输出
     '''
-    pd_df = spark_data_flow(platform_version)
+    pd_df = spark_data_flow()
     os.system(
         ("hadoop fs -rmr "
          "{path}/"
@@ -229,17 +266,18 @@ def get_spark_session():
     return spark
     
 if __name__ == '__main__':  
-    #输入参数
-    PLATFORM_VERSION = '20170416'
-    #中间结果版本
-    RELATION_VERSION = '20170403' 
+    conf = configparser.ConfigParser()    
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
     
-    OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
+    #输入参数
+    PLATFORM_VERSION = conf.get('p2p_company_feature', 'PLATFORM_VERSION')
+    WDZJ_VERSION = conf.get('p2p_company_feature', 'WDZJ_VERSION')
+    #中间结果版本
+    RELATION_VERSION = sys.argv[1]
+    
+    OUT_PATH = conf.get('p2p_company_feature', 'OUT_PATH')
     
     spark = get_spark_session()
     
-    run(
-        platform_version=PLATFORM_VERSION,
-        relation_version=RELATION_VERSION
-    )
+    run(relation_version=RELATION_VERSION)
     

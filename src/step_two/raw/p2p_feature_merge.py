@@ -6,11 +6,12 @@
 --deploy-mode client \
 p2p_feature_merge.py
 '''
+import os
+import sys
 
+import configparser
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
-import os
-
 
 def get_spark_session():   
     conf = SparkConf()
@@ -63,6 +64,8 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
     ).select(
         p2p_df.bbd_qyxx_id
         ,p2p_df.company_name
+        ,p2p_df.platform_name
+        ,p2p_df.platform_state
         ,'p2p_feature_1'
         ,'p2p_feature_2'
         ,'p2p_feature_3'
@@ -81,6 +84,9 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
         ,'p2p_feature_16'
         ,'p2p_feature_17'
         ,'p2p_feature_18'
+        ,'p2p_feature_19'
+        ,'p2p_feature_20'
+        ,'p2p_feature_21'
         ,'feature_1'
         ,'feature_2'
         ,'feature_3'
@@ -114,8 +120,8 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
     return raw_df
 
 def run():
-    raw_df = spark_data_flow(static_version=RAW_STATIC_VERSION, 
-                             dynamic_version=RAW_DYNAMIC_VERSION,
+    raw_df = spark_data_flow(static_version=RELATION_VERSION, 
+                             dynamic_version=RELATION_VERSION,
                              relation_version=RELATION_VERSION)
     os.system(
         ("hadoop fs -rmr " 
@@ -128,10 +134,11 @@ def run():
                                                version=RELATION_VERSION))
 
 if __name__ == '__main__':
+    conf = configparser.ConfigParser()    
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
+    
     #输入参数
-    RAW_STATIC_VERSION, RAW_DYNAMIC_VERSION = ['20170117', '20170117']
-    #中间结果版本
-    RELATION_VERSION = '20170117' 
+    RELATION_VERSION = sys.argv[1]
     
     IN_PAHT = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_two/raw/"

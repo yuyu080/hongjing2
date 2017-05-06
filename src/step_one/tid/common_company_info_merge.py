@@ -4,15 +4,18 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
-common_company_info_merge.py
+common_company_info_merge.py {version}
 '''
+
+import os
+import sys
 
 import configparser
 from  pyspark.sql.types import StructType, StructField, StringType, IntegerType
 from pyspark.sql import functions as fun
 from pyspark.sql import SparkSession, Row
 from pyspark.conf import SparkConf
-import os
+
 
 def is_invest(edge_iter):
     '''
@@ -822,10 +825,10 @@ def get_spark_session():
 
 if __name__ == "__main__":
     conf = configparser.ConfigParser()    
-    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.conf")
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
  
     #中间结果版本与关联方版本相同
-    RELATION_VERSION = '20170403'
+    RELATION_VERSION = sys.argv[1]
         
     #输入数据版本
     SO_VERSION = RELATION_VERSION
@@ -850,8 +853,8 @@ if __name__ == "__main__":
     LEIJINRONG_VERSION = RELATION_VERSION
 
     #输入输出路径
-    IN_PATH = conf.get('step_one', 'tid_in_path')
-    OUT_PATH = conf.get('step_one', 'tid_out_path')
+    IN_PATH = conf.get('common_company_info_merge', 'IN_PATH')
+    OUT_PATH = conf.get('common_company_info_merge', 'OUT_PATH')
 
     #sparkSession
     spark = get_spark_session()

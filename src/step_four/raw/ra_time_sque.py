@@ -10,6 +10,7 @@ ra_time_sque.py
 '''
 import json
 import numpy as np
+import os
 
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
@@ -114,7 +115,7 @@ def raw_spark_data_flow(version_list):
     return prd_rdd
 
 def get_id():
-    return 
+    return ''
 
 def spark_data_flow():
     get_id_udf = fun.udf(get_id, tp.StringType())
@@ -140,10 +141,46 @@ def spark_data_flow():
 
 def run():
     prd_df = spark_data_flow()
+    
+    os.system(
+        ("hadoop fs -rmr " 
+         "{path}/"
+         "ra_time_sque").format(path=OUT_PATH))
+    
     prd_df.repartition(
-        1
-    ).write.jdbc(url=URL, table=TABLE, 
-                 mode="append", properties=PROP)
+        10
+    ).rdd.map(
+        lambda r:
+        '\t'.join([
+            r.id,
+            r.val_type,
+            r.industry,
+            r.time_sque,
+            r.gmt_create.strftime('%Y-%m-%d %H:%M:%S'),
+            r.gmt_update.strftime('%Y-%m-%d %H:%M:%S')
+        ])
+    ).saveAsTextFile(
+        "{path}/ra_time_sque".format(path=OUT_PATH)
+    )
+    
+    #输出到mysql
+    os.system(
+    ''' 
+    sqoop export \
+    --connect {url} \
+    --username {user} \
+    --password '{password}' \
+    --table {table} \
+    --export-dir {path}/{table} \
+    --input-fields-terminated-by '\\t' 
+    '''.format(
+        url=URL,
+        user=PROP['user'],
+        password=PROP['password'],
+        table=TABLE,
+        path=OUT_PATH
+    )
+    )    
     print '\n************\n导入大成功SUCCESS !!\n************\n'
 
 def get_spark_session():   
@@ -176,6 +213,7 @@ if __name__ == '__main__':
 
     #输入路径
     IN_PATH = '/user/antifraud/hongjing2/dataflow/step_three/prd/'    
+    OUT_PATH = '/user/antifraud/hongjing2/dataflow/step_four/raw'
     
     #mysql输出信息
     TABLE = 'ra_time_sque'

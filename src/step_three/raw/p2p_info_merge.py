@@ -4,9 +4,9 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
-p2p_info_merge.py
+p2p_info_merge.py {version}
 '''
-
+import sys
 import os
 import json
 
@@ -17,15 +17,53 @@ from pyspark.sql import types as tp
 from pyspark.sql import Row
 
 def get_json_obj(row):
-    '''将一级指标合在一起'''
+    '''将一级指标分平台合在一起，问题平台直接打100分'''
+    
+    name_mapping = {
+        'p2p_platform_compliance_risk': u'平台合规性风险',
+        'p2p_reputation_risk': u'企业诚信风险',
+        'p2p_company_strength_risk': u'综合实力风险',
+        'p2p_trading_feature_risk': u'交易指标风险',
+        'p2p_relationship_risk': u'平台关联方风险',
+    }    
+
+    #单个p2p平台的风险分布
+    risk_composition = {name_mapping[k]: v for k,v in row.iteritems() 
+        if k not in ['bbd_qyxx_id', 'total_score', 
+                     'company_name', 'platform_name', 
+                     'platform_state']}
+    #加入该平台的状态
+    risk_composition['platform_state'] = row['platform_state']
+        
+    platform_risk_composition = {
+        row['platform_name']: risk_composition
+    }
+    
+    if (row['platform_state'] == u'正常' or 
+            row['platform_state'] == 'NULL'):
+        risk_index = row['total_score']
+        risk_composition['total_score'] = row['total_score']
+    else:
+        risk_index = 100.
+        risk_composition['total_score'] = 100.
+
     return Row(
         bbd_qyxx_id=row['bbd_qyxx_id'],
         company_name=row['company_name'],
-        risk_index=row['total_score'],
-        risk_composition=json.dumps(
-            {k: v for k,v in row.iteritems() 
-                 if k not in ['bbd_qyxx_id', 'total_score', 'company_name']})
+        platform_risk_composition=json.dumps(
+            platform_risk_composition,
+            ensure_ascii=False
+        ),
+        risk_index=risk_index
     )
+
+def get_risk_composition(col):
+    '''将多个平台的分值合并'''
+    result = {}
+    for each_platform_risk_composition in col:
+        each_obj = json.loads(each_platform_risk_composition)
+        result.update(each_obj)
+    return json.dumps(result, ensure_ascii=False)
 
 def get_black(col):
     return True
@@ -38,6 +76,7 @@ def spark_data_flow():
     3、目前企业是否是黑企业
     '''
     get_black_udf = fun.udf(get_black, tp.BooleanType())
+    get_risk_composition_udf = fun.udf(get_risk_composition, tp.StringType())
     
     raw_basic_df = spark.read.parquet(
         ("/user/antifraud/hongjing2/dataflow/step_one/raw"
@@ -65,7 +104,22 @@ def spark_data_flow():
     ).map(
         get_json_obj
     ).toDF(
+    ).groupBy(
+        ['bbd_qyxx_id', 'company_name']
+    ).agg(
+        {'risk_index': 'avg', 'platform_risk_composition': 'collect_list'}    
+    ).select(
+        'bbd_qyxx_id',
+        'company_name',
+        'avg(risk_index)',
+        get_risk_composition_udf(
+            'collect_list(platform_risk_composition)'
+        ).alias('risk_composition')
+    ).withColumnRenamed(
+        'avg(risk_index)', 'risk_index'    
     )
+    
+    
     tid_p2p_risk_score_df = tid_p2p_risk_score_df.join(
         raw_basic_df,
         raw_basic_df.bbd_qyxx_id == tid_p2p_risk_score_df.bbd_qyxx_id,
@@ -73,10 +127,13 @@ def spark_data_flow():
     ).select(
         tid_p2p_risk_score_df.bbd_qyxx_id,
         tid_p2p_risk_score_df.company_name,
-        tid_p2p_risk_score_df.risk_index,
+        fun.round(
+            tid_p2p_risk_score_df.risk_index, 1
+        ).alias('risk_index'),
         tid_p2p_risk_score_df.risk_composition,
         raw_basic_df.company_county
     )
+    
     tid_p2p_risk_score_df = tid_p2p_risk_score_df.join(
         county_mapping_df,
         county_mapping_df.code == tid_p2p_risk_score_df.company_county,
@@ -139,7 +196,7 @@ def get_spark_session():
     
 if __name__ == '__main__':
     #中间结果版本
-    RELATION_VERSION = '20170117' 
+    RELATION_VERSION = sys.argv[1] 
     
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_three/raw/"
     

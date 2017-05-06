@@ -8,7 +8,7 @@
 --jars /usr/share/java/mysql-connector-java-5.1.39.jar \
 ra_area_count.py
 '''
-
+import os
 
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
@@ -85,7 +85,7 @@ def get_jycs(col):
         return 0
 
 def get_id():
-    return 
+    return ''
     
 def raw_spark_data_flow():
     #注册所有需要用到的udf
@@ -321,6 +321,7 @@ def spark_data_flow():
         tid_new_df.xxjr.alias('rising_financial'),
         tid_new_df.wljd.alias('net_loan'),
         tid_new_df.jycs.alias('trade_place'),
+        tid_new_df.smjj.alias('private_fund'),
         tid_new_df.gmt_create,
         tid_new_df.gmt_update
     ).fillna(
@@ -333,10 +334,60 @@ def spark_data_flow():
     
 def run():
     prd_df = spark_data_flow()
+    
+    os.system(
+        ("hadoop fs -rmr " 
+         "{path}/"
+         "ra_area_count/{version}").format(path=OUT_PATH, 
+                                           version=NEW_VERSION))
+    
     prd_df.repartition(
-        1
-    ).write.jdbc(url=URL, table=TABLE, 
-                 mode="append", properties=PROP)
+        10
+    ).rdd.map(
+        lambda r:
+            '\t'.join([
+                r.id,
+                r.province,
+                r.city,
+                r.area,
+                str(r.high_risk),
+                str(r.add_high_risk),
+                str(r.lessen_high_risk),
+                str(r.monitor),
+                str(r.add_monitor),
+                str(r.lessen_monitor),
+                str(r.rising_financial),
+                str(r.net_loan),
+                str(r.trade_place),
+                str(r.private_fund),
+                r.gmt_create.strftime('%Y-%m-%d %H:%M:%S'),
+                r.gmt_update.strftime('%Y-%m-%d %H:%M:%S')
+            ])
+    ).saveAsTextFile(
+        "{path}/ra_area_count/{version}".format(path=OUT_PATH,
+                                                version=NEW_VERSION)
+    )
+ 
+    #输出到mysql
+    os.system(
+    ''' 
+    sqoop export \
+    --connect {url} \
+    --username {user} \
+    --password '{password}' \
+    --table {table} \
+    --export-dir {path}/{table}/{version} \
+    --input-fields-terminated-by '\\t' 
+    '''.format(
+        url=URL,
+        user=PROP['user'],
+        password=PROP['password'],
+        table=TABLE,
+        path=OUT_PATH,
+        version=NEW_VERSION
+    )
+    )
+       
     print '\n************\n导入大成功SUCCESS !!\n************\n'
 
 def get_spark_session():   
@@ -365,8 +416,10 @@ def get_spark_session():
 
 if __name__ == '__main__':
     #用于比较的两个数据版本
-    OLD_VERSION = '20170117'
-    NEW_VERSION = '20170403'
+    VERSION_LIST = ['20170117', '20170403']
+    VERSION_LIST.sort()
+    OLD_VERSION, NEW_VERSION = VERSION_LIST[-2:]
+    OUT_PATH = '/user/antifraud/hongjing2/dataflow/step_four/raw'    
     
     #mysql输出信息
     TABLE = 'ra_area_count'

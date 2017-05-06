@@ -4,42 +4,18 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
-all_company_info.py
+all_company_info.py {version}
 '''
-
+import sys
 import os
 import json
-import random
 
+import configparser
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 from pyspark.sql import functions as fun
 from pyspark.sql import types as tp
 from pyspark.sql import Row
-
-def get_nf_type(col):
-    return u'新兴金融'
-    
-def get_p2p_type(col):
-    return u'网络借贷'
-    
-def get_pe_type(col):
-    return u'私募基金'
-    
-def get_ex_type(col):
-    return u'交易场所'
-
-def get_risk_rank():
-    '''
-    临时生成危险等级
-    '''
-    risk_degree = random.randint(1, 3)
-    risk_dict = {
-        1: u'高危预警',
-        2: u'重点关注',
-        3: u'持续监控'
-    }
-    return risk_dict[risk_degree]
 
 def get_json_obj(row):
     json_obj = json.dumps(
@@ -48,8 +24,9 @@ def get_json_obj(row):
          u'行政处罚': row['xzcf'],
          u'失信信息': row['sxxx'],
          u'经营异常': row['jyyc'],
-         u'分支机构': row['fzjg']},
-         
+         u'分支机构': row['fzjg'],
+         u'风险关联方': row['fxglf'] if row['fxglf'] else 0
+        },
         ensure_ascii=False
     )
     return Row(
@@ -63,45 +40,42 @@ def get_data_version():
 
 def raw_spark_data_flow():
     '''
-    合并前各行业企业的所有信息，并输出单一时间点的最终结果
+    根据step_one_prd的计算结果合并前各行业企业的所有信息，
+    并输出单一时间点的最终结果
     '''
-    get_nf_type_udf = fun.udf(get_nf_type, tp.StringType())
-    get_p2p_type_udf = fun.udf(get_p2p_type, tp.StringType())
-    get_pe_type_udf = fun.udf(get_pe_type, tp.StringType())
-    get_ex_type_udf = fun.udf(get_ex_type, tp.StringType())
+    
+    #所有种类企业的合集
+    sample_df = spark.read.parquet(
+         ("/user/antifraud/hongjing2/dataflow/step_one/raw"
+          "/ljr_sample/{version}").format(version=RELATION_VERSION))
     
     raw_nf_df = spark.read.parquet(
-            ("/user/antifraud/hongjing2/dataflow/step_three/tid"
-            "/nf_feature_tags/{version}").format(version='20170403')) \
-        .withColumn('company_type', get_nf_type_udf('company_name'))
+        ("/user/antifraud/hongjing2/dataflow/step_three/tid"
+         "/nf_feature_tags/{version}").format(version=RELATION_VERSION))
     
-    p2p_df = spark.read.parquet(
-            ("/user/antifraud/hongjing2/dataflow/step_three/tid"
-            "/p2p_feature_tags/{version}").format(version='20170403')) \
-        .withColumn('company_type', get_p2p_type_udf('company_name'))
+    raw_p2p_df = spark.read.parquet(
+        ("/user/antifraud/hongjing2/dataflow/step_three/tid"
+         "/p2p_feature_tags/{version}").format(version=RELATION_VERSION)) 
     
-    pe_df = spark.read.parquet(
-            ("/user/antifraud/hongjing2/dataflow/step_three/tid"
-            "/pe_feature_tags/{version}").format(version='20170403')) \
-        .withColumn('company_type', get_pe_type_udf('company_name'))
+    raw_pe_df = spark.read.parquet(
+        ("/user/antifraud/hongjing2/dataflow/step_three/tid"
+         "/pe_feature_tags/{version}").format(version=RELATION_VERSION))
     
-    ex_df = spark.read.parquet(
-            ("/user/antifraud/hongjing2/dataflow/step_three/tid"
-            "/ex_feature_tags/{version}").format(version='20170403')) \
-        .withColumn('company_type', get_ex_type_udf('company_name'))
+    raw_ex_df = spark.read.parquet(
+        ("/user/antifraud/hongjing2/dataflow/step_three/tid"
+         "/ex_feature_tags/{version}").format(version=RELATION_VERSION))
+    
+    tmp_p2p_df = sample_df.where(sample_df.company_type == u'网络借贷')
+    tmp_pe_df = sample_df.where(sample_df.company_type == u'私募基金')
+    tmp_ex_df = sample_df.where(sample_df.company_type == u'交易场所')
+    tmp_nf_df = sample_df.where(
+        sample_df.company_type.isin(TYPE_LIST)
+    )
  
-    #确保一个公司只会存在一条记录
-    industry_df = p2p_df.union(
-        pe_df
-    ).union(
-        ex_df
-    ).dropDuplicates(['company_name'])
-    tmp_nf_df = raw_nf_df.join(
-        industry_df,
-        industry_df.company_name == raw_nf_df.company_name,
-        'left_outer'
-    ).where(
-        industry_df.company_name.isNull()
+    #确保一个公司只会存在一个company_type
+    tid_nf_df = raw_nf_df.join(
+        tmp_nf_df,
+        ['company_name']
     ).select(
         raw_nf_df.company_name,
         raw_nf_df.bbd_qyxx_id,
@@ -112,22 +86,173 @@ def raw_spark_data_flow():
         raw_nf_df.city,
         raw_nf_df.county,
         raw_nf_df.is_black,
-        raw_nf_df.company_type
+        tmp_nf_df.company_type
     )
-    tid_nf_df = tmp_nf_df.union(industry_df)    
-    return tid_nf_df    
+    
+    tid_p2p_df = raw_p2p_df.join(
+        tmp_p2p_df,
+        ['company_name']
+    ).select(
+        raw_p2p_df.company_name,
+        raw_p2p_df.bbd_qyxx_id,
+        raw_p2p_df.risk_tags,
+        raw_p2p_df.risk_index,
+        raw_p2p_df.risk_composition,
+        raw_p2p_df.province,
+        raw_p2p_df.city,
+        raw_p2p_df.county,
+        raw_p2p_df.is_black,
+        tmp_p2p_df.company_type
+    )
+    
+    tid_pe_df = raw_pe_df.join(
+        tmp_pe_df,
+        ['company_name']
+    ).select(
+        raw_pe_df.company_name,
+        raw_pe_df.bbd_qyxx_id,
+        raw_pe_df.risk_tags,
+        raw_pe_df.risk_index,
+        raw_pe_df.risk_composition,
+        raw_pe_df.province,
+        raw_pe_df.city,
+        raw_pe_df.county,
+        raw_pe_df.is_black,
+        tmp_pe_df.company_type
+    )
+    
+    tid_ex_df = raw_ex_df.join(
+        tmp_ex_df,
+        ['company_name']
+    ).select(
+        raw_ex_df.company_name,
+        raw_ex_df.bbd_qyxx_id,
+        raw_ex_df.risk_tags,
+        raw_ex_df.risk_index,
+        raw_ex_df.risk_composition,
+        raw_ex_df.province,
+        raw_ex_df.city,
+        raw_ex_df.county,
+        raw_ex_df.is_black,
+        tmp_ex_df.company_type
+    )
+    
+    prd_df = tid_nf_df.union(
+        tid_p2p_df
+    ).union(
+        tid_pe_df
+    ).union(
+        tid_ex_df
+    ).dropDuplicates(
+        ['bbd_qyxx_id', 'company_name']
+    ).cache()
+    
+    #在prd_df的基础上，获取每个公司的风险等级
+    risk_list = prd_df.select(
+        'risk_index'
+    ).rdd.map(
+        lambda r: r.risk_index
+    ).collect()
+    risk_list.sort(reverse=True)
+    high_risk_point_index = int(len(risk_list) * HIGH_RISK_RATIO)
+    middle_risk_point_index = int(len(risk_list) * MIDDLE_RISK_RATIO)
+    
+    MIDDLE_RISK_POINT = risk_list[middle_risk_point_index]
+    HIGH_RISK_POINT = risk_list[high_risk_point_index]
+    
+    def get_risk_rank(risk_index):
+        if risk_index <= MIDDLE_RISK_POINT:
+            return u'持续监控'
+        elif MIDDLE_RISK_POINT < risk_index <= HIGH_RISK_POINT:
+            return u'重点关注'
+        elif HIGH_RISK_POINT < risk_index:
+            return u'高危预警'
+    get_risk_rank_udf = fun.udf(get_risk_rank, tp.StringType())    
 
-def tid_spark_data_flow():
+    #对prd_df新增一列
+    prd_df = prd_df.withColumn('risk_rank', get_risk_rank_udf('risk_index'))
+
+    return prd_df
+        
+def spark_data_flow():
     '''
-    获取某目标公司的相关信息
+    输出一个版本的整合数据
     '''
+    #输入
+    tid_nf_df = raw_spark_data_flow()
+    
+    #获取目标公司的相关信息
+    #这里计算流程较长，为了就是获取风险关联企业：
+    relation_df = spark.read.parquet(
+        ("/user/antifraud/hongjing2/dataflow/step_one/tid"
+         "/common_company_info_merge"
+         "/{version}").format(version=RELATION_VERSION))
+    
+    high_risk_df = tid_nf_df.select(
+        'bbd_qyxx_id',
+        'risk_index',
+        'risk_rank'
+    ).where(
+        tid_nf_df.risk_rank == u'高危预警'
+    ).dropDuplicates(
+        ['bbd_qyxx_id']
+    )
+    
+    tmp_df = relation_df.dropDuplicates(
+       [ 'a', 'b', 'c']
+    ).select(
+        'a', 'b', 'c', 'b_isperson', 'c_isperson', 'a_name', 'b_name', 'c_name'
+    ).cache()
+    
+    tmp_2_df = tmp_df.select(
+        'a', 'b', 'b_name', 'a_name'
+    ).where(
+        'b_isperson == 0'
+    ).union(
+        tmp_df.select(
+            'a', 'c', 'c_name', 'a_name'
+        ).where(
+            'c_isperson == 0'
+        )
+    ).dropDuplicates(
+        ['a', 'b']
+    )
+    
+    tmp_3_df = tmp_2_df.join(
+        high_risk_df,
+        high_risk_df.bbd_qyxx_id == tmp_2_df.b,
+        'left_outer'
+    ).select(
+        tmp_2_df.a,
+        tmp_2_df.b,
+        tmp_2_df.a_name,
+        tmp_2_df.b_name,
+        fun.when(
+            high_risk_df.risk_rank.isNull(), 0
+        ).otherwise(
+            1
+        ).alias(
+            'is_high'
+        )
+    ).groupBy(
+        tmp_2_df.a
+    ).agg(
+        {'is_high': 'sum'}
+    ).withColumnRenamed(
+        'sum(is_high)', 'relation_high_num'
+    ).cache()
+    
     common_static_feature_df = spark.read.json(
         ("/user/antifraud/hongjing2/dataflow/step_one/prd"
          "/common_static_feature_distribution"
          "/{version}").format(version=RELATION_VERSION))    
-    raw_xgxx_info = common_static_feature_df.select(
-        'bbd_qyxx_id',
-        'company_name',
+    raw_xgxx_info = common_static_feature_df.join(
+        tmp_3_df,
+        common_static_feature_df.bbd_qyxx_id == tmp_3_df.a,
+        'left_outer'
+    ).select(
+        common_static_feature_df.bbd_qyxx_id,
+        common_static_feature_df.company_name,
         (common_static_feature_df.feature_6.getItem('c_1') + 
         common_static_feature_df.feature_6.getItem('c_2') +
         common_static_feature_df.feature_6.getItem('c_3') +
@@ -147,21 +272,14 @@ def tid_spark_data_flow():
         (common_static_feature_df.feature_13.getItem('0').getItem('jyyc')
         ).alias('jyyc'),
         (common_static_feature_df.feature_18.getItem('d')
-        ).alias('fzjg')
+        ).alias('fzjg'),
+        tmp_3_df.relation_high_num.alias('fxglf')
     ).rdd.map(
         get_json_obj
-    ).toDF()
-    return raw_xgxx_info
+    ).toDF(
+    )
         
-def spark_data_flow():
-    '''
-    输出一个版本的整合数据
-    '''
-    #输入
-    tid_nf_df = raw_spark_data_flow()
-    raw_xgxx_info = tid_spark_data_flow()
     #输出
-    get_risk_rank_udf = fun.udf(get_risk_rank, tp.StringType())
     get_data_version_udf = fun.udf(get_data_version, tp.StringType())
     prd_nf_df = tid_nf_df.join(
         raw_xgxx_info,
@@ -179,7 +297,7 @@ def spark_data_flow():
         tid_nf_df.is_black,
         tid_nf_df.company_type,
         raw_xgxx_info.xgxx_info,
-        get_risk_rank_udf().alias('risk_rank'),
+        tid_nf_df.risk_rank,
         get_data_version_udf().alias('data_version'),
         fun.current_timestamp().alias('gmt_create'),
         fun.current_timestamp().alias('gmt_update')
@@ -223,8 +341,14 @@ def get_spark_session():
     return spark 
 
 if __name__ == '__main__':
-    #中间结果版本
-    RELATION_VERSION = '20170117' 
+    conf = configparser.ConfigParser()    
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
+    
+    #输入参数
+    TYPE_LIST = eval(conf.get('input_sample_data', 'TYPE_LIST'))
+    HIGH_RISK_RATIO = conf.getfloat('all_company_info', 'HIGH_RISK_RATIO')
+    MIDDLE_RISK_RATIO = conf.getfloat('all_company_info', 'MIDDLE_RISK_RATIO')
+    RELATION_VERSION = sys.argv[1]
     
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_three/prd/"
     

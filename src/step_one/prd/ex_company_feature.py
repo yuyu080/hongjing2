@@ -4,15 +4,16 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
-ex_company_feature.py
+ex_company_feature.py {version}
 
 '''
 
-
+import sys
 import json
 import re
 import os
 
+import configparser
 from pyspark.sql import types as tp
 from pyspark.sql import functions as fun
 from pyspark.conf import SparkConf
@@ -60,7 +61,7 @@ class ExFeatureConstruction(object):
         return avg
     
     @__fault_tolerant
-    def get_feature_1(cls, trading_variety_info):
+    def _get_feature_1(cls, trading_variety_info):
         '''
         交易波动风险
         '''
@@ -80,7 +81,7 @@ class ExFeatureConstruction(object):
         return risk
 
     @__fault_tolerant
-    def get_feature_2(cls, trading_variety_info):
+    def get_feature_1(cls, trading_variety_info):
         '''
         保证金风险
         '''
@@ -100,7 +101,7 @@ class ExFeatureConstruction(object):
         return risk
     
     @__fault_tolerant
-    def get_feature_3(cls, trading_variety_info):
+    def _get_feature_3(cls, trading_variety_info):
         '''
         手续费风险
         '''
@@ -132,7 +133,7 @@ class ExFeatureConstruction(object):
         return risk
     
     @__fault_tolerant
-    def get_feature_4(cls, trading_variety_info):
+    def get_feature_2(cls, trading_variety_info):
         '''
         交易品种风险
         '''
@@ -153,14 +154,14 @@ class ExFeatureConstruction(object):
         return risk
     
     @__fault_tolerant
-    def get_feature_5(cls, legal_opinion):
+    def get_feature_3(cls, legal_opinion):
         '''
         违规会员单位风险，必须在step_two中计算
         '''
         pass
 
     @__fault_tolerant
-    def get_feature_6(cls, legal_opinion):
+    def get_feature_4(cls, legal_opinion):
         '''
         高风险会员单位风险，必须在step_two中计算
         '''
@@ -197,11 +198,7 @@ def spark_data_flow(exchange_version):
         SparkUdf.define_spark_udf(
             1, udf_return_type)('trading_variety_info').alias('ex_feature_1'),
         SparkUdf.define_spark_udf(
-            2, udf_return_type)('trading_variety_info').alias('ex_feature_2'),
-        SparkUdf.define_spark_udf(
-            3, udf_return_type)('trading_variety_info').alias('ex_feature_3'),
-        SparkUdf.define_spark_udf(
-            4, udf_return_type)('trading_variety_info').alias('ex_feature_4'),
+            2, udf_return_type)('trading_variety_info').alias('ex_feature_2')
     )   
     
     return tid_df
@@ -251,12 +248,15 @@ def get_spark_session():
     return spark
     
 if __name__ == '__main__':  
-    #输入参数
-    EXCHANGE_VERSION = '20170416'
-    #中间结果版本
-    RELATION_VERSION = '20170403'    
+    conf = configparser.ConfigParser()    
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
     
-    OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
+    #输入参数
+    EXCHANGE_VERSION = conf.get('ex_company_feature', 'EXCHANGE_VERSION')
+    #中间结果版本
+    RELATION_VERSION = sys.argv[1]    
+    
+    OUT_PATH = conf.get('ex_company_feature', 'OUT_PATH')
     
     spark = get_spark_session()
     

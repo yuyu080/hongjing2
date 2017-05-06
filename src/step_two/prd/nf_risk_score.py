@@ -8,6 +8,7 @@ nf_risk_score.py
 '''
 
 import os
+import sys
 import json
 
 from pyspark.sql import SparkSession
@@ -26,10 +27,10 @@ def get_label_probability(iter_data):
     for each_row in iter_data:
         if (each_row['feature_25'] and each_row['feature_26'] and 
                   each_row['feature_27'] and each_row['feature_28']):
-            data = [each_row['feature_1']['r'], each_row['feature_2']['c'],
+            data = [each_row['feature_1']['r'], each_row['feature_2']['x'],
                     each_row['feature_3']['j'], each_row['feature_4']['k'],
                     each_row['feature_5']['l'], each_row['feature_6']['z'],
-                    each_row['feature_7']['z'], each_row['feature_8']['y'],
+                    each_row['feature_7']['z'], each_row['feature_8']['t_1'],
                     each_row['feature_9']['n'], each_row['feature_10']['z'],
                     each_row['feature_11']['z'], each_row['feature_12']['z'],
                     each_row['feature_13']['z'], each_row['feature_14']['z'],
@@ -41,10 +42,10 @@ def get_label_probability(iter_data):
                     each_row['feature_25']['p'], each_row['feature_26']['h'],
                     each_row['feature_27']['c'], each_row['feature_28']['k']]
         else:
-            data = [each_row['feature_1']['r'], each_row['feature_2']['c'],
+            data = [each_row['feature_1']['r'], each_row['feature_2']['x'],
                     each_row['feature_3']['j'], each_row['feature_4']['k'],
                     each_row['feature_5']['l'], each_row['feature_6']['z'],
-                    each_row['feature_7']['z'], each_row['feature_8']['y'],
+                    each_row['feature_7']['z'], each_row['feature_8']['t_1'],
                     each_row['feature_9']['n'], each_row['feature_10']['z'],
                     each_row['feature_11']['z'], each_row['feature_12']['z'],
                     each_row['feature_13']['z'], each_row['feature_14']['z'],
@@ -83,11 +84,12 @@ def change_score(src_score):
 def get_subdivision_index(row):
     '''
     根据权重分布对每个一级指标打分，GM为通用部门的权重
-    '''   
+    '''
     from risk_weight import risk_weight
+
     gm_weight = risk_weight['GM']
-    total_score = round(change_score(row[2]*100.), 2)
-    risk_distribution = {k: round(v*total_score/100., 2) 
+    total_score = round(change_score(row[2]*100.), 1)
+    risk_distribution = {k: round(v*total_score/100., 1) 
                          for k, v in gm_weight.iteritems()}
     row_dict = dict(
         bbd_qyxx_id = row[0],
@@ -158,7 +160,7 @@ if __name__ == '__main__':
     IN_PATH = "/user/antifraud/hongjing2/dataflow/step_two/raw"
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_two/prd"
     #中间结果版本
-    RELATION_VERSION = '20170117' 
+    RELATION_VERSION = sys.argv[1]
     
     spark = get_spark_session()
     

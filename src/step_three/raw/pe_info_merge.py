@@ -4,9 +4,9 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
-pe_info_merge.py
+pe_info_merge.py {version}
 '''
-
+import sys
 import os
 import json
 
@@ -18,13 +18,29 @@ from pyspark.sql import Row
 
 def get_json_obj(row):
     '''将一级指标合在一起'''
+    
+    name_mapping = {
+        'pe_organization_management_risk': u'管理机构风险',
+        'pe_organization_relationship_risk': u'机构关联方风险',
+        'pe_strength_risk': u'私募综合实力风险',
+        'pe_management_risk': u'私募基金管理风险',
+        'pe_compliance_risk': u'监管合规性风险',
+    }
+    
+    risk_composition = {'--': {
+        name_mapping[k]: v 
+        for k,v in row.iteritems() 
+        if k not in ['bbd_qyxx_id', 'total_score',
+                     'company_name']}}
+    risk_composition['--']['total_score'] = row['total_score']
+    
     return Row(
         bbd_qyxx_id=row['bbd_qyxx_id'],
         company_name=row['company_name'],
         risk_index=row['total_score'],
         risk_composition=json.dumps(
-            {k: v for k,v in row.iteritems() 
-                 if k not in ['bbd_qyxx_id', 'total_score', 'company_name']})
+            risk_composition,
+            ensure_ascii=False)
     )
 
 def get_black(col):
@@ -139,7 +155,7 @@ def get_spark_session():
 
 if __name__ == '__main__':
     #中间结果版本
-    RELATION_VERSION = '20170117' 
+    RELATION_VERSION = sys.argv[1]
     
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_three/raw/"
     

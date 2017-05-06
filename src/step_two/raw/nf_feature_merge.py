@@ -6,11 +6,12 @@
 --deploy-mode client \
 nf_feature_merge.py
 '''
+import os
+import sys
 
-
+import configparser
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
-import os
 
 def get_spark_session():   
     conf = SparkConf()
@@ -49,16 +50,25 @@ def spark_data_flow(static_version, dynamic_version):
         "common_dynamic_feature_distribution/{version}".format(path=IN_PAHT, 
                                                                version=dynamic_version))
 
-    #这里需要一个样本df，将新金融企业选出来
-    #ef: emerging_finance
-    new_finance_df = None
+    sample_df = spark.read.parquet(
+         ("/user/antifraud/hongjing2/dataflow/step_one/raw"
+          "/ljr_sample/{version}").format(version=RELATION_VERSION))
+
+    #这里需要一个样本df,
+    #将某些类型的企业选出来分别打分
+    some_type_df = sample_df.where(
+        sample_df.company_type.isin(TYPE_LIST)
+    )
 
     feature_df = static_df.join(
         dynamic_df,
         static_df.company_name == dynamic_df.company_name,
         'left_outer'
+    ).join(
+        some_type_df,
+        some_type_df.company_name == static_df.company_name
     ).select(
-        ['bbd_qyxx_id', 
+        [static_df.bbd_qyxx_id, 
          static_df.company_name,
          'feature_1', 'feature_10', 'feature_11', 'feature_12',
          'feature_13', 'feature_14', 'feature_15', 'feature_16',
@@ -72,8 +82,8 @@ def spark_data_flow(static_version, dynamic_version):
     return feature_df
     
 def run():
-    raw_df = spark_data_flow(static_version=RAW_STATIC_VERSION, 
-                             dynamic_version=RAW_DYNAMIC_VERSION)
+    raw_df = spark_data_flow(static_version=RELATION_VERSION, 
+                             dynamic_version=RELATION_VERSION)
     os.system(
         ("hadoop fs -rmr " 
          "{path}/"
@@ -85,10 +95,11 @@ def run():
                                                   version=RELATION_VERSION))
     
 if __name__ == '__main__':
+    conf = configparser.ConfigParser()    
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
     #输入参数
-    RAW_STATIC_VERSION, RAW_DYNAMIC_VERSION = ['20170117', '20170117']
-    #中间结果版本
-    RELATION_VERSION = '20170117' 
+    TYPE_LIST = eval(conf.get('input_sample_data', 'TYPE_LIST'))
+    RELATION_VERSION = sys.argv[1]
     
     IN_PAHT = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_two/raw/"

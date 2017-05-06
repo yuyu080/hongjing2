@@ -6,9 +6,9 @@
 --deploy-mode client \
 --driver-class-path /usr/share/java/mysql-connector-java-5.1.39.jar \
 --jars /usr/share/java/mysql-connector-java-5.1.39.jar \
-ra_time_sque.py
+ra_high_company.py
 '''
-
+import os
 
 from pyspark.sql import Window
 from pyspark.sql.functions import rank
@@ -28,11 +28,13 @@ def is_new(col):
     '''
     企业是否是新进入企业
     '''
+    new_status, old_status = False, False
     for each_info in col:
         if NEW_VERSION in each_info:
-            return 1
-    else:
-        return 0
+            new_status = True
+        if OLD_VERSION in each_info:
+            old_status = True
+    return 1 if new_status and not old_status else 0
 
 def is_rise(col):
     '''
@@ -184,10 +186,58 @@ def spark_data_flow():
     
 def run():
     prd_df = spark_data_flow()
+    
+    os.system(
+        ("hadoop fs -rmr " 
+         "{path}/"
+         "ra_high_company/{version}").format(path=OUT_PATH, 
+                                             version=NEW_VERSION))  
+    
     prd_df.repartition(
-        20
-    ).write.jdbc(url=URL, table=TABLE, 
-                 mode="append", properties=PROP)
+        10
+    ).rdd.map(
+        lambda r:
+            '\t'.join([
+                r.id,
+                r.province,
+                r.city,
+                r.area,
+                r.company_id,
+                r.company,
+                str(r.risk_index),
+                str(r.rise),
+                str(r.is_new),
+                r.join_date,
+                r.industry,
+                r.register_area,
+                r.gmt_create.strftime('%Y-%m-%d %H:%M:%S'),
+                r.gmt_update.strftime('%Y-%m-%d %H:%M:%S')
+            ])
+    ).saveAsTextFile(
+        "{path}/ra_high_company/{version}".format(path=OUT_PATH,
+                                                  version=NEW_VERSION)
+    )
+    
+    #输出到mysql
+    os.system(
+    ''' 
+    sqoop export \
+    --connect {url} \
+    --username {user} \
+    --password '{password}' \
+    --table {table} \
+    --export-dir {path}/{table}/{version} \
+    --input-fields-terminated-by '\\t' 
+    '''.format(
+        url=URL,
+        user=PROP['user'],
+        password=PROP['password'],
+        table=TABLE,
+        path=OUT_PATH,
+        version=NEW_VERSION
+    )
+    )
+    
     print '\n************\n导入大成功SUCCESS !!\n************\n'
 
 def get_spark_session():   
@@ -220,7 +270,8 @@ if __name__ == '__main__':
     VERSION_LIST = ['20170117', '20170403']
     VERSION_LIST.sort()
     OLD_VERSION, NEW_VERSION = VERSION_LIST[-2:]
-
+    OUT_PATH = '/user/antifraud/hongjing2/dataflow/step_four/raw'
+    
     #mysql输出信息
     TABLE = 'ra_high_company'
     URL = "jdbc:mysql://10.10.20.180:3306/airflow?characterEncoding=UTF-8"

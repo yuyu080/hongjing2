@@ -4,14 +4,15 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
-pe_company_feature.py
+pe_company_feature.py {version}
 
 '''
-
+import sys
 import json
 import os
 import math
 
+import configparser
 from pyspark.sql import types as tp
 from pyspark.sql import functions as fun
 from pyspark.conf import SparkConf
@@ -343,12 +344,15 @@ def get_spark_session():
     
     
 if __name__ == '__main__':  
-    #输入参数
-    SMJJ_VERSION = '20170315'
-    #中间结果版本
-    RELATION_VERSION = '20170403' 
+    conf = configparser.ConfigParser()    
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
     
-    OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
+    #输入参数
+    SMJJ_VERSION = conf.get('pe_company_feature', 'SMJJ_VERSION')
+    #中间结果版本
+    RELATION_VERSION = sys.argv[1]
+    
+    OUT_PATH = conf.get('pe_company_feature', 'OUT_PATH')
 
     spark = get_spark_session()
     

@@ -4,12 +4,12 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
-common_company_static_feature.py
+common_company_static_feature.py {version}
 '''
-
+import json
 import datetime
 import requests
-import json
+import sys
 import os
 from operator import itemgetter
 from collections import Counter, defaultdict, OrderedDict
@@ -1209,9 +1209,8 @@ def run(relation_version):
 
     
 if __name__ == '__main__':  
-    
     #中间结果版本
-    RELATION_VERSION = '20170117'
+    RELATION_VERSION = sys.argv[1]
     
     #输入参数
     IN_PATH = "/user/antifraud/hongjing2/dataflow/step_one/tid/"

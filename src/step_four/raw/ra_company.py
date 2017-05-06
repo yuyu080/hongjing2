@@ -8,21 +8,15 @@
 --jars /usr/share/java/mysql-connector-java-5.1.39.jar \
 ra_company.py
 '''
-
+import os
 import json
 
+import configparser
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 from pyspark.sql import functions as fun
 from pyspark.sql import types as tp
-
-
-def get_risk_sequence(*args):
-    result = {}
-    for each_args in args:
-        each_version, each_score = each_args.split(':')
-        result[each_version] = each_score
-    return json.dumps(result, ensure_ascii=False)
+from pyspark.sql import Row
 
 def get_xgxx_change(old_xgxx, new_xgxx):
     '''
@@ -62,6 +56,47 @@ def get_risk_change(old_score, new_score):
     else:
         return 0
 
+def get_risk_sequence_version(iter_obj):
+    '''
+    获取每个企业各个日期，每个子键的风险总分
+    '''
+    result = {}
+    for each_obj in iter_obj:
+        version, json_obj = each_obj.split('&&')
+        py_obj = json.loads(json_obj)
+        for k, v in py_obj.iteritems():
+            if result.has_key(k):
+                result[k][version] = v['total_score']
+            else:
+                result[k] = {version: v['total_score']}
+    return json.dumps(result, ensure_ascii=False)
+
+def get_df(version):
+    '''
+    获取单个版本df的高危企业
+    '''
+    raw_df = spark.read.parquet(
+        ("{path}"
+         "/all_company_info/{version}").format(path=IN_PATH,
+                                               version=version))
+    return raw_df
+    
+def raw_spark_data_flow():
+    df_list = []
+    for each_version in VERSION_LIST:
+        each_df = get_df(each_version)
+        df_list.append(each_df)
+    
+    #将多个df合并
+    tid_df = eval(
+        "df_list[{0}]".format(0) + 
+        "".join([
+                ".union(df_list[{0}])".format(df_index) 
+                for df_index in range(1, len(df_list))])
+    )
+
+    return tid_df
+
 def tid_spark_data_flow():
     '''
     构建df的某些字段
@@ -69,16 +104,11 @@ def tid_spark_data_flow():
     #构建udf
     get_risk_change_udf = fun.udf(get_risk_change, tp.IntegerType())
     get_xgxx_change_udf = fun.udf(get_xgxx_change, tp.StringType())
-    get_risk_sequence_udf = fun.udf(get_risk_sequence, tp.StringType())
-    
     
     #原始输入
-    old_df =  spark.read.parquet(
-        ("/user/antifraud/hongjing2/dataflow/step_three/prd"
-        "/all_company_info/{version}").format(version=OLD_VERSION))
-    new_df =  spark.read.parquet(
-        ("/user/antifraud/hongjing2/dataflow/step_three/prd"
-        "/all_company_info/{version}").format(version=NEW_VERSION))
+    old_df = get_df(OLD_VERSION)
+    new_df = get_df(NEW_VERSION)
+    raw_df = raw_spark_data_flow()        
         
     #易燃指数是否上升
     tmp_new_df = new_df.select(
@@ -126,29 +156,26 @@ def tid_spark_data_flow():
         ).alias('xgxx_info_with_change')
     )
     
-    #易燃指数时序图
-    tmp_new_5_df = new_df.select(
+    #易燃指数时序图，涉及多版本，多子键的计算
+    #risk_sequence_version
+    tid_df = raw_df.select(
+        'bbd_qyxx_id',
         'company_name',
         fun.concat_ws(
-            ':', 'data_version', 'risk_index'
-        ).alias('risk_with_version'),
-    )
-    tmp_old_5_df = old_df.select(
-        'company_name',
-        fun.concat_ws(
-            ':', 'data_version', 'risk_index'
-        ).alias('risk_with_version'),
-    )
-    tmp_new_6_df = tmp_new_5_df.join(
-        tmp_old_5_df,
-        'company_name',
-        'left_outer'
-    ).select(
-        tmp_new_5_df.company_name,
-        get_risk_sequence_udf(
-            tmp_new_5_df.risk_with_version,
-            tmp_old_5_df.risk_with_version
-        ).alias('risk_sequence_version')
+            '&&', 'data_version', 'risk_composition'
+        ).alias('risk_with_version')
+    ).rdd.map(
+        lambda r:
+            ((r.company_name, r.bbd_qyxx_id), 
+             r.risk_with_version)
+    ).groupByKey(
+    ).map(
+        lambda (k, iter_obj): Row(
+            company_name=k[0],
+            bbd_qyxx_id=k[1],
+            risk_sequence_version=get_risk_sequence_version(iter_obj)
+        )
+    ).toDF(
     )
     
     #组合所有字段最终输出
@@ -161,7 +188,7 @@ def tid_spark_data_flow():
         'company_name',
         'left_outer'
     ).join(
-        tmp_new_6_df,
+        tid_df,
         'company_name',
         'left_outer'
     ).select(
@@ -176,7 +203,7 @@ def tid_spark_data_flow():
         new_df.company_type,
         new_df.risk_composition,
         new_df.risk_tags,
-        tmp_new_6_df.risk_sequence_version,
+        tid_df.risk_sequence_version,
         tmp_new_4_df.xgxx_info_with_change
     )
 
@@ -185,23 +212,19 @@ def tid_spark_data_flow():
 def spark_data_flow():
     '''
     构建最终输出df
-    '''
-    new_df =  spark.read.parquet(
-        ("/user/antifraud/hongjing2/dataflow/step_three/prd"
-        "/all_company_info/{version}").format(version=NEW_VERSION))
-        
+    '''        
     tid_new_df = tid_spark_data_flow()
 
     
     prd_new_df = tid_new_df.where(
-        new_df.bbd_qyxx_id.isNotNull()
+        tid_new_df.bbd_qyxx_id.isNotNull()
     ).select(
-        new_df.bbd_qyxx_id.alias('id'),
+        tid_new_df.bbd_qyxx_id.alias('id'),
         'province',
         'city',
         tid_new_df.county.alias('area'),
         tid_new_df.company_name.alias('company'),
-        'risk_index',
+        fun.round('risk_index', 1).alias('risk_index'),
         tid_new_df.risk_rank.alias('risk_level'),
         tid_new_df.is_rise.alias('rise'),
         tid_new_df.company_type.alias('industry'),
@@ -222,19 +245,68 @@ def spark_data_flow():
 
 def run():
     prd_df = spark_data_flow()
+
+    os.system(
+        ("hadoop fs -rmr " 
+         "{path}/"
+         "ra_company/{version}").format(path=OUT_PATH, 
+                                             version=NEW_VERSION))      
+    
     prd_df.repartition(
-        20
-    ).write.jdbc(url=URL, table=TABLE, 
-                 mode="append", properties=PROP)
+        10
+    ).rdd.map(
+        lambda r:
+            '\t'.join([
+                r.id,
+                r.province,
+                r.city,
+                r.area,
+                r.company,
+                str(r.risk_index),
+                r.risk_level,
+                str(r.rise),
+                r.industry,
+                r.index_radar,
+                r.risk_scan,
+                r.index_sort,
+                r.company_detail,
+                r.gmt_create.strftime('%Y-%m-%d %H:%M:%S'),
+                r.gmt_update.strftime('%Y-%m-%d %H:%M:%S')
+            ])
+    ).saveAsTextFile(
+        "{path}/ra_company/{version}".format(path=OUT_PATH,
+                                             version=NEW_VERSION)
+    )
+        
+    #输出到mysql
+    os.system(
+    ''' 
+    sqoop export \
+    --connect {url} \
+    --username {user} \
+    --password '{password}' \
+    --table {table} \
+    --export-dir {path}/{table}/{version} \
+    --input-fields-terminated-by '\\t' 
+    '''.format(
+        url=URL,
+        user=PROP['user'],
+        password=PROP['password'],
+        table=TABLE,
+        path=OUT_PATH,
+        version=NEW_VERSION
+    )
+    )
+    
     print '\n************\n导入大成功SUCCESS !!\n************\n'
 
 def get_spark_session():   
     conf = SparkConf()
     conf.setMaster('yarn-client')
     conf.set("spark.yarn.am.cores", 7)
-    conf.set("spark.executor.memory", "50g")
-    conf.set("spark.executor.instances", 10)
-    conf.set("spark.executor.cores", 10)
+    conf.set("spark.executor.memory", "20g")
+    conf.set("spark.executor.instances", 15)
+    conf.set("spark.executor.cores", 5)
     conf.set("spark.python.worker.memory", "2g")
     conf.set("spark.default.parallelism", 1000)
     conf.set("spark.sql.shuffle.partitions", 1000)
@@ -253,16 +325,20 @@ def get_spark_session():
     return spark 
 
 if __name__ == '__main__':
+    conf = configparser.ConfigParser()    
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
+    
     #用于比较的两个数据版本
-    OLD_VERSION = '20170117'
-    NEW_VERSION = '20170403'
+    VERSION_LIST = eval(conf.get('common', 'RELATION_VERSIONS'))
+    VERSION_LIST.sort()
+    OLD_VERSION, NEW_VERSION = VERSION_LIST[-2:]
+    IN_PATH = '/user/antifraud/hongjing2/dataflow/step_three/prd'
+    OUT_PATH = '/user/antifraud/hongjing2/dataflow/step_four/raw'
     
     #mysql输出信息
-    TABLE = 'ra_company'
-    URL = "jdbc:mysql://10.10.20.180:3306/airflow?characterEncoding=UTF-8"
-    PROP = {"user": "airflow", 
-            "password":"airflow", 
-            "driver": "com.mysql.jdbc.Driver"}
+    TABLE = conf.get('mysql', 'TABLE')
+    URL = conf.get('mysql', 'URL')
+    PROP = eval(conf.get('mysql', 'PROP'))
     
     spark = get_spark_session()
     

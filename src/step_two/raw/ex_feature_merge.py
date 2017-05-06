@@ -4,14 +4,17 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
-ex_feature_merge.py
+ex_feature_merge.py {version}
 '''
+import os
+import sys
 
+import configparser
 from pyspark.sql import functions as fun
 from pyspark.sql import types as tp
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
-import os
+
 
 def is_black(col):
     return 1
@@ -19,7 +22,7 @@ def is_black(col):
 def is_risk(col):
     return 1    
 
-def get_ex_feature_5(col):
+def get_ex_feature_3(col):
     '''
     违规会员单位风险
     '''
@@ -31,7 +34,7 @@ def get_ex_feature_5(col):
         risk = 100.
     return risk
 
-def get_ex_feature_6(col):
+def get_ex_feature_4(col):
     '''
     高风险会员单位风险
     '''
@@ -145,15 +148,15 @@ def ex_supplement_flow():
         .withColumnRenamed('sum(is_black)', 'black_num') \
         .withColumnRenamed('sum(is_risk)', 'risk_num')
         
-    get_ex_feature_5_udf = fun.udf(get_ex_feature_5, tp.DoubleType())
-    get_ex_feature_6_udf = fun.udf(get_ex_feature_6, tp.DoubleType())
+    get_ex_feature_3_udf = fun.udf(get_ex_feature_3, tp.DoubleType())
+    get_ex_feature_4_udf = fun.udf(get_ex_feature_4, tp.DoubleType())
     
     prd_ex_member_df = prd_ex_member_df.select(
         prd_ex_member_df.exchange_name.alias('company_name'),
         'black_num',
         'risk_num',
-        get_ex_feature_5_udf('black_num').alias('ex_feature_5'),
-        get_ex_feature_6_udf('risk_num').alias('ex_feature_6')
+        get_ex_feature_3_udf('black_num').alias('ex_feature_3'),
+        get_ex_feature_4_udf('risk_num').alias('ex_feature_4')
     )
     
     return prd_ex_member_df
@@ -195,10 +198,16 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
         ,ex_df.company_name
         ,'ex_feature_1'
         ,'ex_feature_2'
-        ,'ex_feature_3'
-        ,'ex_feature_4'
-        ,ex_supplement_df.ex_feature_5
-        ,ex_supplement_df.ex_feature_6
+        ,fun.when(
+            ex_supplement_df.ex_feature_3.isNull(), 0
+        ).otherwise(
+            ex_supplement_df.ex_feature_3
+        ).alias('ex_feature_3')
+        ,fun.when(
+            ex_supplement_df.ex_feature_4.isNull(), 0
+        ).otherwise(
+            ex_supplement_df.ex_feature_4
+        ).alias('ex_feature_4')
         ,'feature_1'
         ,'feature_2'
         ,'feature_3'
@@ -232,8 +241,8 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
     return raw_df
 
 def run():
-    raw_df = spark_data_flow(static_version=RAW_STATIC_VERSION, 
-                             dynamic_version=RAW_DYNAMIC_VERSION,
+    raw_df = spark_data_flow(static_version=RELATION_VERSION, 
+                             dynamic_version=RELATION_VERSION,
                              relation_version=RELATION_VERSION)
     os.system(
         ("hadoop fs -rmr " 
@@ -246,15 +255,16 @@ def run():
                                                version=RELATION_VERSION))
 
 if __name__ == '__main__':
-    #输入参数
-    RAW_STATIC_VERSION, RAW_DYNAMIC_VERSION = ['20170117', '20170117']
-    #交易平台日期
-    EX_MEMBER_VERSION = '20170423'
-    #中间结果版本
-    RELATION_VERSION = '20170117' 
+    conf = configparser.ConfigParser()    
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
     
-    IN_PAHT = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
-    OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_two/raw/"
+    #输入参数
+    #交易平台日期
+    EX_MEMBER_VERSION = conf.get('ex_feature_merge', 'EX_MEMBER_VERSION')
+    RELATION_VERSION = sys.argv[1]
+    
+    IN_PAHT = conf.get('ex_feature_merge', 'IN_PAHT')
+    OUT_PATH = conf.get('ex_feature_merge', 'OUT_PATH')
     
     spark = get_spark_session()
     
