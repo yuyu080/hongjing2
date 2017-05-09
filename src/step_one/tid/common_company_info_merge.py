@@ -200,15 +200,18 @@ def run(relation_version):
     )
         
     #2.1 解析关联方，获取全量公司列表
+    #由于历史关联方的更新问题，这里从sample中选取最新的bbd_qyxx_id
     tid_df = sample_df.join(
         relation_df,
         fun.trim(relation_df.a_name) == fun.trim(sample_df.company_name),
         'left_outer'
     ).select(
-        'a','b','c',
+        sample_df.bbd_qyxx_id.alias('a'),
+        'b','c',
         'b_degree','c_degree', 'bc_relation' ,
         'b_isperson','c_isperson',
-        'a_name','b_name','c_name'
+        sample_df.company_name.alias('a_name'),
+        'b_name','c_name'
     )
     
     glf_schema = StructType([
@@ -677,7 +680,8 @@ def run(relation_version):
         fun.trim(tid_df.a_name) == fun.trim(sample_df.company_name),
         'left_outer'
     ).select(
-        'a', 'b', 'c',
+        sample_df.bbd_qyxx_id.alias('a'), 
+        'b', 'c',
         'b_degree', 'c_degree', 'bc_relation',
         'b_isperson', 'c_isperson',
         sample_df.company_name.alias('a_name'),
@@ -686,10 +690,10 @@ def run(relation_version):
     ##目标公司信息
     tid_company_merge_df = tid_company_merge_df.join(
         tid_company_info_df,
-        tid_company_info_df.company_name == tid_company_merge_df.a_name,
+        tid_company_info_df.bbd_qyxx_id == tid_company_merge_df.a,
         'left_outer'
     ).select(
-        tid_company_info_df.bbd_qyxx_id.alias('a'), 
+        tid_company_merge_df.a, 
         'b', 'c',
         'b_degree', 'c_degree', 'bc_relation',
         'b_isperson', 'c_isperson', 'a_name',

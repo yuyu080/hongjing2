@@ -141,7 +141,7 @@ def spark_data_flow():
     
     #取权重最高的那一个company_type
     window = Window.partitionBy(
-        ['bbd_qyxx_id', 'company_name']
+        ['bbd_qyxx_id']
     ).orderBy(
         raw_all_df.weight.desc()
     )

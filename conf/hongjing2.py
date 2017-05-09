@@ -1,16 +1,18 @@
 [common]
 
-RELATION_VERSIONS = ["20170117", "20170403"]
+RELATION_VERSIONS = ["20170117", "20170221", "20170315", "20170417"]
 
 
 
 [mysql]
 
-TABLE = ra_company
-URL = jdbc:mysql://10.10.20.155:3306/ra_two_v2?characterEncoding=UTF-8
-PROP = {"user": "ra_two", 
-        "password":"bbd12345678", 
-        "driver": "com.mysql.jdbc.Driver"}
+URL = jdbc:mysql://10.10.20.180:3306/airflow?characterEncoding=UTF-8
+PROP = {"user": "airflow", 
+        "password":"airflow", 
+        "driver": "com.mysql.jdbc.Driver",
+        "ip": "10.10.20.180",
+        "db_name": "airflow",
+        "port": "3306"}
 
 
 
@@ -62,41 +64,41 @@ OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/raw/
 [common_company_info]
 
 #dw.qyxx_basic
-BASIC_VERSION = 20170217
+BASIC_VERSION = 20170504
 #dw.qyxx_zhuanli
-ZHUANLI_VERSION = 20170217
+ZHUANLI_VERSION = 20170504
 #dw.xgxx_shangbiao
-SHANGBIAO_VERSION = 20170219
+SHANGBIAO_VERSION = 20170504
 #dw.domain_name_website_info
-DOMAIN_WEBSITE_VERSION = 20170217
+DOMAIN_WEBSITE_VERSION = 20170504
 #dw.qyxx_bgxx
-BGXX_VERSION = 20170217
+BGXX_VERSION = 20170504
 #dw.recruit
-RECRUIT_VERSION = 20170217
+RECRUIT_VERSION = 20170504
 #dw.shgy_zhaobjg
-ZHAOBIAO_VERSION = 20170219
+ZHAOBIAO_VERSION = 20170504
 #dw.shgy_zhongbjg
-ZHONGBIAO_VERSION = 20170219 
+ZHONGBIAO_VERSION = 20170504 
 #dw.ktgg
-KTGG_VERSION = 20170219
+KTGG_VERSION = 20170504
 #dw.zgcpwsw
-ZGCPWSW_VERSION = 20170217
+ZGCPWSW_VERSION = 20170504
 #dw.rmfygg
-RMFYGG_VERSION = 20170219
+RMFYGG_VERSION = 20170504
 #dw.Xzcf
-XZCF_VERSION = 20170219
+XZCF_VERSION = 20170504
 #dw.zhixing
-ZHIXING_VERSION = 20170219
+ZHIXING_VERSION = 20170504
 #dw.dishonesty
-DISHONESTY_VERSION = 20170219
+DISHONESTY_VERSION = 20170504
 #dw.qyxg_jyyc
-JYYC_VERSION = 20170219
+JYYC_VERSION = 20170504
 #dw.qyxg_circxzcf
-CIRCXZCF_VERSION = 20170219
+CIRCXZCF_VERSION = 20170504
 #dw.qyxx_fzjg_extend
-FZJG_VERSION = 20170227
+FZJG_VERSION = 20170504
 #dw.qyxg_leijinrong_blacklist
-BLACK_VERSION = 20170406
+#BLACK_VERSION = 20170406
 
 OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/raw/
 

@@ -62,7 +62,8 @@ def get_risk_sequence_version(iter_obj):
     '''
     result = {}
     for each_obj in iter_obj:
-        version, json_obj = each_obj.split('&&')
+        risk_with_version = each_obj[1]
+        version, json_obj = risk_with_version.split('&&')
         py_obj = json.loads(json_obj)
         for k, v in py_obj.iteritems():
             if result.has_key(k):
@@ -70,6 +71,18 @@ def get_risk_sequence_version(iter_obj):
             else:
                 result[k] = {version: v['total_score']}
     return json.dumps(result, ensure_ascii=False)
+
+def get_true_id(iter_obj):
+    '''
+    由于时间跨度不同，需要获取真正的bbd_qyxx_id
+    '''
+    bbd_qyxx_id = None
+    for each_obj in iter_obj:
+        bbd_qyxx_id = each_obj[0]
+        if bbd_qyxx_id:
+            return bbd_qyxx_id
+    else:
+        return bbd_qyxx_id
 
 def get_df(version):
     '''
@@ -166,13 +179,12 @@ def tid_spark_data_flow():
         ).alias('risk_with_version')
     ).rdd.map(
         lambda r:
-            ((r.company_name, r.bbd_qyxx_id), 
-             r.risk_with_version)
+            (r.company_name, (r.bbd_qyxx_id, r.risk_with_version))
     ).groupByKey(
     ).map(
         lambda (k, iter_obj): Row(
-            company_name=k[0],
-            bbd_qyxx_id=k[1],
+            company_name=k,
+            bbd_qyxx_id=get_true_id(iter_obj),
             risk_sequence_version=get_risk_sequence_version(iter_obj)
         )
     ).toDF(
@@ -336,7 +348,7 @@ if __name__ == '__main__':
     OUT_PATH = '/user/antifraud/hongjing2/dataflow/step_four/raw'
     
     #mysql输出信息
-    TABLE = conf.get('mysql', 'TABLE')
+    TABLE = 'ra_company'
     URL = conf.get('mysql', 'URL')
     PROP = eval(conf.get('mysql', 'PROP'))
     

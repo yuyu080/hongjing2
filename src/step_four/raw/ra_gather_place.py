@@ -8,9 +8,11 @@
 --jars /usr/share/java/mysql-connector-java-5.1.39.jar \
 ra_gather_place.py
 '''
+import sys
 import os
 import json
 
+import configparser
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 from pyspark.sql import Window
@@ -211,17 +213,18 @@ def get_spark_session():
     return spark 
 
 if __name__ == '__main__':
+    conf = configparser.ConfigParser()    
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
+
     #数据版本
-    RELATION_VERSION = '20170403'
+    RELATION_VERSION = sys.argv[1]
     #输出
     OUT_PATH = '/user/antifraud/hongjing2/dataflow/step_four/raw'    
     
     #mysql输出信息
     TABLE = 'ra_gather_place'
-    URL = "jdbc:mysql://10.10.20.155:3306/ra_two_v2?characterEncoding=UTF-8"
-    PROP = {"user": "ra_two_zhao", 
-            "password":"123456", 
-            "driver": "com.mysql.jdbc.Driver"}
+    URL = conf.get('mysql', 'URL')
+    PROP = eval(conf.get('mysql', 'PROP'))
     
     spark = get_spark_session()
     

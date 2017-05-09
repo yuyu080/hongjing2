@@ -4,6 +4,30 @@ import configparser
 import subprocess
 import sys
 
+import MySQLdb
+
+def truncate_table(table):
+    '''连接mysql，执行一个SQL'''
+    db = MySQLdb.connect(host=PROP['ip'], user=PROP['user'], 
+                         passwd=PROP['password'], db=PROP['db_name'], 
+                         charset="utf8")
+    # 使用cursor()方法获取操作游标 
+    cursor = db.cursor()
+    # 使用execute方法执行SQL语句
+    sql = "TRUNCATE TABLE {0}".format(table)
+    try:
+        # 执行SQL语句
+        cursor.execute(sql)
+        # 提交到数据库执行
+        db.commit()
+    except:
+        # 发生错误时回滚
+        db.rollback()
+    # 关闭数据库连接
+    db.close()
+    
+    print "清空表{0}成功".format(table)
+
 def execute_some_step(step_name, step_child_name, file_name, version):
     '''提交某个spark-job'''
     execute_result = subprocess.call(
@@ -211,8 +235,8 @@ def step_three(step_child_name, version):
         
     if step_child_name == 'prd':
         result_nine = execute_some_step('step_three', 'prd', 
-                                         'all_company_info.py',
-                                         version)
+                                        'all_company_info.py',
+                                        version)
         is_success(result_nine, 'step_three', 'prd',
                    'all_company_info.py',
                    version)
@@ -276,11 +300,57 @@ def run(is_history_back):
         
         step_three('raw', NEW_VERSION)
         step_three('tid', NEW_VERSION)
-        step_three('prd', NEW_VERSION)         
+        step_three('prd', NEW_VERSION)
+
+
+
+def into_mysql(version):
+    '''合并所有历史版本，写入mysql，在写之前需要清空表'''
+    
+    truncate_table('ra_time_sque') 
+    result_one = execute_some_step('step_four', 'raw', 
+                                     'ra_time_sque.py',
+                                     version)
+    is_success(result_one, 'step_four', 'step_four',
+               'ra_time_sque.py',
+               version)
+    
+    truncate_table('ra_company')
+    result_two = execute_some_step('step_four', 'raw', 
+                                   'ra_company.py',
+                                   version)
+    is_success(result_two, 'step_four', 'raw',
+               'ra_company.py',
+               version)
+    
+    truncate_table('ra_high_company')
+    result_three = execute_some_step('step_four', 'raw', 
+                                     'ra_high_company.py',
+                                     version)
+    is_success(result_three, 'step_four', 'raw',
+               'ra_high_company.py',
+               version)
+
+    truncate_table('ra_area_count')
+    result_four = execute_some_step('step_four', 'raw', 
+                                     'ra_area_count.py',
+                                     version)
+    is_success(result_four, 'step_four', 'raw',
+               'ra_area_count.py',
+               version)
+    
+    truncate_table('ra_gather_place')
+    result_five = execute_some_step('step_four', 'raw', 
+                                    'ra_gather_place.py',
+                                    version)
+    is_success(result_five, 'step_four', 'raw',
+               'ra_gather_place.py',
+               version)
+
 
 
 if __name__ == '__main__':
-    conf = configparser.ConfigParser()    
+    conf = configparser.ConfigParser()
     conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
 
     IN_PATH = conf.get('work_flow', 'IN_PATH')
@@ -288,4 +358,10 @@ if __name__ == '__main__':
     RELATION_VERSIONS.sort()
     OLD_VERSION, NEW_VERSION = RELATION_VERSIONS[-2:]
 
-    run(is_history_back=True)
+    #mysql输出信息
+    TABLE = 'ra_company'
+    URL = conf.get('mysql', 'URL')
+    PROP = eval(conf.get('mysql', 'PROP'))
+
+    #run(is_history_back=True)
+    into_mysql(NEW_VERSION)

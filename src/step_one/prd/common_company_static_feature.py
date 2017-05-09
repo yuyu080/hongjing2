@@ -291,7 +291,8 @@ class FeatureConstruction(object):
         if cls.resultiterable.data[0].a_bgxx is not None:
             for bgxx_name, bgxx_num in cls.resultiterable.data[0].a_bgxx.iteritems():
                 default_result[get_bgxx_symbol(bgxx_name)] += int(bgxx_num)
-            default_result['r'] = np.dot(default_result.values(), [2, 1, 1, 1, 2, 0, 0, 0])
+            default_result['r'] = np.dot(default_result.values(), 
+                                         [2, 1, 1, 1, 2, 0, 0, 0])
         
             if default_result['r'] == 0:
                 default_result['z'] = 10
@@ -731,7 +732,7 @@ class FeatureConstruction(object):
         legal_person_subsidiary = len([
                 des_node 
                 for src_node, des_node, edge_attr 
-                in cls.DIG.edges_iter(one_relation_set, data=True) 
+                in cls.DIG.edges_iter(data=True)
                 if src_node == cls.tarcompany 
                 and edge_attr['is_invest'] == 'INVEST'
                 and cls.DIG.node[des_node]['is_human'] == 0])

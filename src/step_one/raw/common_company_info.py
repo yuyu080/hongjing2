@@ -79,10 +79,12 @@ def get_company_namefrag(iterator):
     '''
     try:
         from dafei_keyword import KeywordExtr
-        _obj = KeywordExtr("city", "1gram.words", "2gram.words", "new.work.words")
+        _obj = KeywordExtr("city", "1gram.words", 
+                           "2gram.words", "new.work.words")
         keyword_list = []
         for row in iterator:
-            keyword_list.append((row.company_name, _obj.clean(row.company_name)))
+            keyword_list.append(
+                (row.company_name, _obj.clean(row.company_name)))
         return keyword_list
     except Exception, e:
         return e
@@ -119,7 +121,8 @@ def get_spark_session():
         
 def run():
     #注册udf
-    to_dict_udf = fun.udf(to_dict, tp.MapType(tp.StringType(), tp.StringType()))
+    to_dict_udf = fun.udf(to_dict, tp.MapType(tp.StringType(), 
+                                              tp.StringType()))
     add_col_udf = fun.udf(add_col, tp.ArrayType(tp.StringType()))
     is_not_revoked_udf = fun.udf(is_not_revoked, tp.IntegerType())
     has_keyword_udf = fun.udf(has_keyword, tp.StringType())
@@ -135,12 +138,17 @@ def run():
             "driver": "com.mysql.jdbc.Driver"}
     table = "qyxx_state_owned_enterprise_background"
     so_df = spark.read.jdbc(url=url, table=table, properties=prop)
-    os.system("hadoop fs -rmr \
-        {path}/qyxx_state_owned_enterprise_background/{version}".format(version=RELATION_VERSION,
-                                                                        path=OUT_PATH))
+    os.system(
+        ("hadoop fs -rmr "
+         "{path}/"
+         "qyxx_state_owned_enterprise_background"
+         "/{version}").format(version=RELATION_VERSION,
+                             path=OUT_PATH))
     so_df.write.parquet(
-        "{path}/qyxx_state_owned_enterprise_background/{version}".format(version=RELATION_VERSION,
-                                                                         path=OUT_PATH))
+        ("{path}/"
+         "qyxx_state_owned_enterprise_background"
+         "/{version}").format(version=RELATION_VERSION,
+                              path=OUT_PATH))
     
     #基础工商信息
     basic_df = spark.sql(
@@ -499,8 +507,9 @@ def run():
         .count() \
         .withColumnRenamed('count', 'xzcf_num')
     os.system(
-        "hadoop fs -rmr {path}/xzcf/{version}".format(version=RELATION_VERSION, 
-                                                      path=OUT_PATH))
+        ("hadoop fs -rmr "
+         "{path}/xzcf/{version}").format(version=RELATION_VERSION, 
+                                         path=OUT_PATH))
     xzcf_count_df.repartition(10).write.parquet(
         "{path}/xzcf/{version}".format(version=RELATION_VERSION, 
                                        path=OUT_PATH))
@@ -524,8 +533,9 @@ def run():
         .count() \
         .withColumnRenamed('count', 'zhixing_num')
     os.system(
-        "hadoop fs -rmr {path}/zhixing/{version}".format(version=RELATION_VERSION, 
-                                                         path=OUT_PATH))
+        ("hadoop fs -rmr "
+         "{path}/zhixing/{version}").format(version=RELATION_VERSION, 
+                                            path=OUT_PATH))
     zhixing_count_df.repartition(10).write.parquet(
         "{path}/zhixing/{version}".format(version=RELATION_VERSION, 
                                           path=OUT_PATH))
@@ -549,8 +559,9 @@ def run():
         .count() \
         .withColumnRenamed('count', 'dishonesty_num')
     os.system(
-        "hadoop fs -rmr {path}/dishonesty/{version}".format(version=RELATION_VERSION, 
-                                                            path=OUT_PATH))
+        ("hadoop fs -rmr "
+         "{path}/dishonesty/{version}").format(version=RELATION_VERSION, 
+                                               path=OUT_PATH))
     dishonesty_count_df.repartition(10).write.parquet(
         "{path}/dishonesty/{version}".format(version=RELATION_VERSION, 
                                              path=OUT_PATH))
@@ -574,8 +585,9 @@ def run():
         .count() \
         .withColumnRenamed('count', 'jyyc_num')
     os.system(
-        "hadoop fs -rmr {path}/jyyc/{version}".format(version=RELATION_VERSION, 
-                                                      path=OUT_PATH))
+        ("hadoop fs -rmr "
+         "{path}/jyyc/{version}").format(version=RELATION_VERSION, 
+                                         path=OUT_PATH))
     jyyc_count_df.repartition(10).write.parquet(
         "{path}/jyyc/{version}".format(version=RELATION_VERSION, 
                                        path=OUT_PATH))
@@ -599,8 +611,9 @@ def run():
         .count() \
         .withColumnRenamed('count', 'circxzcf_num')
     os.system(
-        "hadoop fs -rmr {path}/circxzcf/{version}".format(version=RELATION_VERSION, 
-                                                          path=OUT_PATH))
+        ("hadoop fs -rmr "
+         "{path}/circxzcf/{version}").format(version=RELATION_VERSION, 
+                                             path=OUT_PATH))
     circxzcf_count_df.repartition(10).write.parquet(
         "{path}/circxzcf/{version}".format(version=RELATION_VERSION, 
                                            path=OUT_PATH))
@@ -635,8 +648,9 @@ def run():
         .map(lambda r: Row(company_name=r[0], namefrag=r[1])) \
         .toDF()
     os.system(
-        "hadoop fs -rmr {path}/namefrag/{version}".format(version=RELATION_VERSION, 
-                                                          path=OUT_PATH))
+        ("hadoop fs -rmr "
+         "{path}/namefrag/{version}").format(version=RELATION_VERSION, 
+                                             path=OUT_PATH))
     namefrag_df.repartition(10).write.parquet(
         "{path}/namefrag/{version}".format(version=RELATION_VERSION, 
                                            path=OUT_PATH))
@@ -671,8 +685,9 @@ def run():
         'count(company_name)', 'province_black_num'
     )
     os.system(
-        "hadoop fs -rmr {path}/black_province/{version}".format(version=RELATION_VERSION, 
-                                                                path=OUT_PATH))
+        ("hadoop fs -rmr "
+         "{path}/black_province/{version}").format(version=RELATION_VERSION, 
+                                                   path=OUT_PATH))
     black_province_df.repartition(10).write.parquet(
         "{path}/black_province/{version}".format(version=RELATION_VERSION, 
                                                  path=OUT_PATH))
@@ -696,8 +711,10 @@ def run():
         'count(company_name)', 'province_leijinrong_num'
     )
     os.system(
-        "hadoop fs -rmr {path}/leijinrong_province/{version}".format(version=RELATION_VERSION, 
-                                                                     path=OUT_PATH))
+        ("hadoop fs -rmr "
+         "{path}/leijinrong_province"
+         "/{version}").format(version=RELATION_VERSION, 
+                              path=OUT_PATH))
     leijinrong_province_df.repartition(10).write.parquet(
     "{path}/leijinrong_province/{version}".format(version=RELATION_VERSION, 
                                                   path=OUT_PATH))
@@ -715,7 +732,8 @@ if __name__ == "__main__":
     BASIC_VERSION = conf.get('common_company_info', 'BASIC_VERSION')
     ZHUANLI_VERSION = conf.get('common_company_info', 'ZHUANLI_VERSION')
     SHANGBIAO_VERSION = conf.get('common_company_info', 'SHANGBIAO_VERSION')
-    DOMAIN_WEBSITE_VERSION = conf.get('common_company_info', 'DOMAIN_WEBSITE_VERSION')
+    DOMAIN_WEBSITE_VERSION = conf.get('common_company_info', 
+                                      'DOMAIN_WEBSITE_VERSION')
     BGXX_VERSION = conf.get('common_company_info', 'BGXX_VERSION')
     RECRUIT_VERSION = conf.get('common_company_info', 'RECRUIT_VERSION')
     ZHAOBIAO_VERSION = conf.get('common_company_info', 'ZHAOBIAO_VERSION')

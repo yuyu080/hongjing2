@@ -10,6 +10,7 @@ ra_high_company.py
 '''
 import os
 
+import configparser
 from pyspark.sql import Window
 from pyspark.sql.functions import rank
 from pyspark.sql import SparkSession
@@ -265,19 +266,20 @@ def get_spark_session():
     return spark 
 
 if __name__ == '__main__':
+    conf = configparser.ConfigParser()    
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
+
     #输入参数
     IN_PATH = '/user/antifraud/hongjing2/dataflow/step_three/prd'
-    VERSION_LIST = ['20170117', '20170403']
+    VERSION_LIST = eval(conf.get('common', 'RELATION_VERSIONS'))
     VERSION_LIST.sort()
     OLD_VERSION, NEW_VERSION = VERSION_LIST[-2:]
     OUT_PATH = '/user/antifraud/hongjing2/dataflow/step_four/raw'
     
     #mysql输出信息
     TABLE = 'ra_high_company'
-    URL = "jdbc:mysql://10.10.20.180:3306/airflow?characterEncoding=UTF-8"
-    PROP = {"user": "airflow", 
-            "password":"airflow", 
-            "driver": "com.mysql.jdbc.Driver"}
+    URL = conf.get('mysql', 'URL')
+    PROP = eval(conf.get('mysql', 'PROP'))
     
     spark = get_spark_session()
     

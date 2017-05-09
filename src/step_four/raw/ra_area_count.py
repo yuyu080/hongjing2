@@ -10,6 +10,7 @@ ra_area_count.py
 '''
 import os
 
+import configparser
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 from pyspark.sql import functions as fun
@@ -121,6 +122,37 @@ def raw_spark_data_flow():
     ).withColumnRenamed(
         'count', 'high_risk_num'
     ).cache()
+    
+    #重点关注企业数
+    focus_on_count_df = new_df.select(
+        'province',
+        'city',
+        'county',
+        'company_name'
+    ).where(
+        new_df.risk_rank == u'重点关注'
+    ).groupBy(
+        ['province', 'city', 'county']
+    ).count(
+    ).withColumnRenamed(
+        'count', 'focus_on_num'
+    ).cache()
+    
+    #持续监控企业数   
+    constantly_monitor_count_df = new_df.select(
+        'province',
+        'city',
+        'county',
+        'company_name'
+    ).where(
+        new_df.risk_rank == u'持续监控'
+    ).groupBy(
+        ['province', 'city', 'county']
+    ).count(
+    ).withColumnRenamed(
+        'count', 'constantly_monitor_num'
+    ).cache()    
+    
     
     #监控企业数
     supervise_count_df = new_df.select(
@@ -265,6 +297,14 @@ def raw_spark_data_flow():
         ['province', 'city', 'county'],
         'left_outer'
     ).join(
+        focus_on_count_df,
+        ['province', 'city', 'county'],
+        'left_outer'            
+    ).join(
+        constantly_monitor_count_df,
+        ['province', 'city', 'county'],
+        'left_outer'            
+    ).join(
         supervise_count_df,
         ['province', 'city', 'county'],
         'left_outer'
@@ -285,6 +325,8 @@ def raw_spark_data_flow():
         new_df.city,
         new_df.county,
         high_risk_count_df.high_risk_num,
+        focus_on_count_df.focus_on_num,
+        constantly_monitor_count_df.constantly_monitor_num,
         supervise_count_df.supervise_num,
         get_xxjr_udf(tid_types_num_df.company_type_merge).alias('xxjr'),
         get_smjj_udf(tid_types_num_df.company_type_merge).alias('smjj'),
@@ -309,10 +351,12 @@ def spark_data_flow():
     tid_new_df = raw_spark_data_flow()
     prd_new_df = tid_new_df.select(
         get_id_udf().alias('id'),
-        'province',
-        'city',
+        tid_new_df.province,
+        tid_new_df.city,
         tid_new_df.county.alias('area'),
         tid_new_df.high_risk_num.alias('high_risk'),
+        tid_new_df.focus_on_num.alias('focus_on'),
+        tid_new_df.constantly_monitor_num.alias('sustain_monitor'),
         tid_new_df.risk_rise_num.alias('add_high_risk'),
         tid_new_df.risk_decline_num.alias('lessen_high_risk'),
         tid_new_df.supervise_num.alias('monitor'),
@@ -326,8 +370,14 @@ def spark_data_flow():
         tid_new_df.gmt_update
     ).fillna(
         0
-    ).fillna(
-        {'city': u'无', 'area': u'无', 'province': u'无'}
+    )
+    
+    prd_new_df = prd_new_df.where(
+        prd_new_df.province.isNotNull()          
+    ).where(
+        prd_new_df.city.isNotNull()
+    ).where(
+        prd_new_df.area.isNotNull()
     )
     
     return prd_new_df
@@ -351,6 +401,8 @@ def run():
                 r.city,
                 r.area,
                 str(r.high_risk),
+                str(r.focus_on),
+                str(r.sustain_monitor),
                 str(r.add_high_risk),
                 str(r.lessen_high_risk),
                 str(r.monitor),
@@ -415,18 +467,19 @@ def get_spark_session():
     return spark 
 
 if __name__ == '__main__':
+    conf = configparser.ConfigParser()    
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
+    
     #用于比较的两个数据版本
-    VERSION_LIST = ['20170117', '20170403']
+    VERSION_LIST = eval(conf.get('common', 'RELATION_VERSIONS'))
     VERSION_LIST.sort()
     OLD_VERSION, NEW_VERSION = VERSION_LIST[-2:]
     OUT_PATH = '/user/antifraud/hongjing2/dataflow/step_four/raw'    
     
     #mysql输出信息
     TABLE = 'ra_area_count'
-    URL = "jdbc:mysql://10.10.20.180:3306/airflow?characterEncoding=UTF-8"
-    PROP = {"user": "airflow", 
-            "password":"airflow", 
-            "driver": "com.mysql.jdbc.Driver"}
+    URL = conf.get('mysql', 'URL')
+    PROP = eval(conf.get('mysql', 'PROP'))
     
     spark = get_spark_session()
     

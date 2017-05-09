@@ -12,6 +12,7 @@ import json
 import numpy as np
 import os
 
+import configparser
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 from pyspark.sql import functions as fun
@@ -27,7 +28,7 @@ def get_median(iter_obj):
     score_list = list(iter_obj)
     return round(
         np.median(score_list),
-        2
+        1
     )
 
 def get_avg(iter_obj):
@@ -37,8 +38,20 @@ def get_avg(iter_obj):
     score_list = list(iter_obj)
     return round(
         np.average(score_list),
-        2
+        1
     )
+
+def recursion_data(all_version_data):
+    '''多个rdd的聚合数据，尼玛的要递归求值'''
+    all_data = []
+    def get_all_obj(data):
+        all_data.append(data[1])
+        if len(data[0]) != 2:
+            all_data.append(data[0])
+        elif len(data[0]) == 2:
+            get_all_obj(data[0])
+    get_all_obj(all_version_data)
+    return all_data
 
 def get_sequence_info(industry_type, iter_objs):
     '''
@@ -48,7 +61,7 @@ def get_sequence_info(industry_type, iter_objs):
     avg_sequence_dict = dict()
     median_sequence_dict = dict()
     for each_obj in iter_objs:
-        value_dict = each_obj.data[0]
+        value_dict = each_obj
         avg_sequence_dict[
             value_dict['data_version']
         ] = value_dict['avg']
@@ -90,6 +103,10 @@ def get_df(version):
         ("{path}"
          "/all_company_info/{version}").format(path=IN_PATH,
                                                version=version))
+    #排除网络借贷中的黑企业
+    df = df.where(
+        df.risk_index != 100
+    )
     return df
 
 def raw_spark_data_flow(version_list):
@@ -105,8 +122,10 @@ def raw_spark_data_flow(version_list):
     tid_rdd = eval(
         "rdd_list[{0}]".format(0) + 
         "".join([
-                ".cogroup(rdd_list[{0}])".format(rdd_index) 
+                ".join(rdd_list[{0}])".format(rdd_index) 
                 for rdd_index in range(1, len(rdd_list))])
+    ).mapValues(
+        recursion_data
     )
         
     prd_rdd = tid_rdd.flatMap(
@@ -208,8 +227,11 @@ def get_spark_session():
     return spark 
 
 if __name__ == '__main__':
+    conf = configparser.ConfigParser()    
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
+    
     #所有数据版本
-    VERSION_LIST = ['20170117', '20170403']
+    VERSION_LIST = eval(conf.get('common', 'RELATION_VERSIONS'))
 
     #输入路径
     IN_PATH = '/user/antifraud/hongjing2/dataflow/step_three/prd/'    
@@ -217,10 +239,8 @@ if __name__ == '__main__':
     
     #mysql输出信息
     TABLE = 'ra_time_sque'
-    URL = "jdbc:mysql://10.10.20.180:3306/airflow?characterEncoding=UTF-8"
-    PROP = {"user": "airflow", 
-            "password":"airflow", 
-            "driver": "com.mysql.jdbc.Driver"}
+    URL = conf.get('mysql', 'URL')
+    PROP = eval(conf.get('mysql', 'PROP'))
     
     spark = get_spark_session()
     
