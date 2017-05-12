@@ -18,6 +18,29 @@ from pyspark.sql import functions as fun
 from pyspark.sql import types as tp
 from pyspark.sql import Row
 
+def get_rank_change(old_rank, new_rank, old_xgxx_info, new_xgxx_info):
+    '''计算企业整体风险变动情况'''
+    result = 0
+    rank_dict = {
+        u'高危预警': 3,
+        u'重点关注': 2,
+        u'持续监控': 1,
+    }
+    
+    #只要风险等级升高，就提示上升
+    if rank_dict[new_rank] - rank_dict[old_rank] > 0:
+        result = 1
+    
+    #相关信息只要有一个上升就返回上升
+    if old_xgxx_info and new_xgxx_info:
+        old_xgxx_info = json.loads(old_xgxx_info)
+        new_xgxx_info = json.loads(new_xgxx_info)
+        for k, v in new_xgxx_info.iteritems():
+            if v - old_xgxx_info[k] > 0:
+                result = 1
+                break
+    return result
+
 def get_xgxx_change(old_xgxx, new_xgxx):
     '''
     获取相关信息的变动情况，并按照一定格式输出
@@ -44,10 +67,17 @@ def get_xgxx_change(old_xgxx, new_xgxx):
     else:
         return u'无'
 
-def get_risk_change(old_score, new_score):
-    if old_score and new_score:
-        is_rise = new_score - old_score
-    else:
+def get_risk_change(old_rank, new_rank):
+    '''风险等级变动'''
+    try:
+        rank_dict = {
+            u'高危预警': 3,
+            u'重点关注': 2,
+            u'持续监控': 1,
+        }
+        is_rise = (rank_dict.get(new_rank, 0) - 
+                    rank_dict.get(old_rank, 0))        
+    except:
         is_rise = 0.
     if is_rise < 0:
         return -1
@@ -117,6 +147,7 @@ def tid_spark_data_flow():
     #构建udf
     get_risk_change_udf = fun.udf(get_risk_change, tp.IntegerType())
     get_xgxx_change_udf = fun.udf(get_xgxx_change, tp.StringType())
+    get_rank_change_udf = fun.udf(get_rank_change, tp.IntegerType())
     
     #原始输入
     old_df = get_df(OLD_VERSION)
@@ -126,11 +157,11 @@ def tid_spark_data_flow():
     #易燃指数是否上升
     tmp_new_df = new_df.select(
         'company_name',
-        'risk_index'
+        'risk_rank'
     )
     tmp_old_df = old_df.select(
         'company_name',
-        'risk_index'
+        'risk_rank'
     )
     tmp_new_2_df = tmp_new_df.join(
         tmp_old_df,
@@ -138,11 +169,9 @@ def tid_spark_data_flow():
         'left_outer'
     ).select(
         'company_name',
-        tmp_new_df.risk_index.alias('new'),
-        tmp_old_df.risk_index.alias('old'),
         get_risk_change_udf(
-            tmp_old_df.risk_index, 
-            tmp_new_df.risk_index
+            tmp_old_df.risk_rank, 
+            tmp_new_df.risk_rank
         ).alias('is_rise')
     )
 
@@ -168,6 +197,35 @@ def tid_spark_data_flow():
             tmp_new_3_df.xgxx_info
         ).alias('xgxx_info_with_change')
     )
+    
+    #企业整体风险变动情况
+    tmp_old_5_df = old_df.select(
+        'bbd_qyxx_id',
+        'company_name',
+        'risk_rank',
+        'xgxx_info'
+    )
+    tmp_new_5_df = new_df.select(
+        'bbd_qyxx_id',
+        'company_name',
+        'risk_rank',
+        'xgxx_info'
+    )
+    
+    tmp_new_6_df = tmp_new_5_df.join(
+        tmp_old_5_df,
+        'company_name',
+        'left_outer'
+    ).select(
+        tmp_new_5_df.bbd_qyxx_id,
+        tmp_new_5_df.company_name,
+        get_rank_change_udf(
+            tmp_old_5_df.risk_rank,
+            tmp_new_5_df.risk_rank,
+            tmp_old_5_df.xgxx_info,
+            tmp_new_5_df.xgxx_info,        
+        ).alias('risk_change')
+    )        
     
     #易燃指数时序图，涉及多版本，多子键的计算
     #risk_sequence_version
@@ -203,6 +261,10 @@ def tid_spark_data_flow():
         tid_df,
         'company_name',
         'left_outer'
+    ).join(
+        tmp_new_6_df,
+        'company_name',
+        'left_outer'
     ).select(
         new_df.bbd_qyxx_id,
         new_df.province,
@@ -211,6 +273,7 @@ def tid_spark_data_flow():
         new_df.company_name,
         new_df.risk_index,
         new_df.risk_rank,
+        tmp_new_6_df.risk_change,
         tmp_new_2_df.is_rise,
         new_df.company_type,
         new_df.risk_composition,
@@ -238,6 +301,7 @@ def spark_data_flow():
         tid_new_df.company_name.alias('company'),
         fun.round('risk_index', 1).alias('risk_index'),
         tid_new_df.risk_rank.alias('risk_level'),
+        tid_new_df.risk_change.alias('risk_rise'),
         tid_new_df.is_rise.alias('rise'),
         tid_new_df.company_type.alias('industry'),
         tid_new_df.risk_composition.alias('index_radar'),
@@ -276,6 +340,7 @@ def run():
                 r.company,
                 str(r.risk_index),
                 r.risk_level,
+                str(r.risk_rise),
                 str(r.rise),
                 r.industry,
                 r.index_radar,
