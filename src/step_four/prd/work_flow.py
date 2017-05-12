@@ -35,6 +35,7 @@ def execute_some_step(step_name, step_child_name, file_name, version):
         /opt/spark-2.0.2/bin/spark-submit \
         --master yarn \
         --deploy-mode client \
+        --driver-memory 15g \
         --jars /usr/share/java/mysql-connector-java-5.1.39.jar \
         --driver-class-path /usr/share/java/mysql-connector-java-5.1.39.jar \
         {path}/{step_child_name}/{file_name} {version}
@@ -363,5 +364,5 @@ if __name__ == '__main__':
     URL = conf.get('mysql', 'URL')
     PROP = eval(conf.get('mysql', 'PROP'))
 
-    #run(is_history_back=True)
+    run(is_history_back=True)
     into_mysql(NEW_VERSION)

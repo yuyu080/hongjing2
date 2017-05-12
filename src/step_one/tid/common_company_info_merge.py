@@ -4,6 +4,7 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
+--driver-memory 15g \
 common_company_info_merge.py {version}
 '''
 
@@ -805,8 +806,8 @@ def get_spark_session():
     conf.set("spark.executor.instances", 20)
     conf.set("spark.executor.cores", 10)
     conf.set("spark.python.worker.memory", "3g")
-    conf.set("spark.default.parallelism", 1000)
-    conf.set("spark.sql.shuffle.partitions", 1000)
+    conf.set("spark.default.parallelism", 1500)
+    conf.set("spark.sql.shuffle.partitions", 1500)
     conf.set("spark.broadcast.blockSize", 1024)
     conf.set("spark.executor.extraJavaOptions",
              "-XX:+PrintGCDetails -XX:+PrintGCTimeStamps")    
