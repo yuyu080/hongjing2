@@ -11,6 +11,7 @@ common_company_info.py {version}
 import os
 import sys
 
+import datetime
 import configparser
 from pyspark.conf import SparkConf
 from pyspark.sql import functions as fun
@@ -204,7 +205,7 @@ def run():
         GROUP BY 
         bbd_qyxx_id
         '''.format(version=ZHUANLI_VERSION,
-                   relation_version=RELATION_VERSION)
+                   relation_version=FORMAT_RELATION_VERSION)
     )
     os.system(
         "hadoop fs -rmr {path}/zhuanli/{version}".format(version=RELATION_VERSION, 
@@ -276,7 +277,7 @@ def run():
         GROUP BY 
         bbd_qyxx_id, change_items
         '''.format(version=BGXX_VERSION,
-                   relation_version=RELATION_VERSION)
+                   relation_version=FORMAT_RELATION_VERSION)
     )
     bgxx_df = bgxx_df.withColumn('tid_tuple', add_col_udf('change_items', 
                                                           'change_num')) \
@@ -308,7 +309,7 @@ def run():
         GROUP BY
         bbd_qyxx_id, education_required
         '''.format(version=RECRUIT_VERSION,
-                   relation_version=RELATION_VERSION)
+                   relation_version=FORMAT_RELATION_VERSION)
     )
     recruit_df = recruit_df \
         .withColumn('tid_tuple', 
@@ -338,7 +339,7 @@ def run():
         AND
         pubdate <= '{relation_version}'
         '''.format(version=ZHAOBIAO_VERSION,
-                   relation_version=RELATION_VERSION)
+                   relation_version=FORMAT_RELATION_VERSION)
     )
     zhaobiao_count_df = zhaobiao_df.where(
         fun.date_add('pubdate', 365) > fun.current_date()) \
@@ -366,7 +367,7 @@ def run():
         AND
         pubdate <= '{relation_version}'
         '''.format(version=ZHONGBIAO_VERSION,
-                   relation_version=RELATION_VERSION)
+                   relation_version=FORMAT_RELATION_VERSION)
     )
     zhongbiao_count_df = zhongbiao_df.where(
             fun.date_add('pubdate', 365) > fun.current_date()) \
@@ -398,7 +399,7 @@ def run():
         AND
         trial_date <= '{relation_version}'
         '''.format(version=KTGG_VERSION,
-                   relation_version=RELATION_VERSION)
+                   relation_version=FORMAT_RELATION_VERSION)
     )
     ktgg_count_df = ktgg_df.groupBy('bbd_qyxx_id')\
         .count() \
@@ -428,7 +429,7 @@ def run():
         AND
         sentence_date <= '{relation_version}'
         '''.format(version=ZGCPWSW_VERSION,
-                   relation_version=RELATION_VERSION)
+                   relation_version=FORMAT_RELATION_VERSION)
     )
     zgcpwsw_count_df = zgcpwsw_df.groupBy('bbd_qyxx_id') \
         .count() \
@@ -456,7 +457,7 @@ def run():
         AND
         notice_time <= '{relation_version}'
         '''.format(version=RMFYGG_VERSION,
-                   relation_version=RELATION_VERSION)
+                   relation_version=FORMAT_RELATION_VERSION)
     )
     rmfygg_count_df = rmfygg_df.groupBy('bbd_qyxx_id') \
         .count() \
@@ -501,7 +502,7 @@ def run():
         AND
         public_date <= '{relation_version}'
         '''.format(version=XZCF_VERSION,
-                   relation_version=RELATION_VERSION)
+                   relation_version=FORMAT_RELATION_VERSION)
     )
     xzcf_count_df = xzcf_df.groupBy('bbd_qyxx_id') \
         .count() \
@@ -527,7 +528,7 @@ def run():
         AND
         case_create_time <= '{relation_version}'
         '''.format(version=ZHIXING_VERSION,
-                   relation_version=RELATION_VERSION)
+                   relation_version=FORMAT_RELATION_VERSION)
     )
     zhixing_count_df = zhixing_df.groupBy('bbd_qyxx_id') \
         .count() \
@@ -553,7 +554,7 @@ def run():
         AND
         case_create_time <= '{relation_version}'
         '''.format(version=DISHONESTY_VERSION,
-                   relation_version=RELATION_VERSION)
+                   relation_version=FORMAT_RELATION_VERSION)
     )
     dishonesty_count_df = dishonesty_df.groupBy('bbd_qyxx_id') \
         .count() \
@@ -579,7 +580,7 @@ def run():
         AND
         rank_date <= '{relation_version}'
         '''.format(version=JYYC_VERSION,
-                   relation_version=RELATION_VERSION)
+                   relation_version=FORMAT_RELATION_VERSION)
     )
     jyyc_count_df = jyyc_df.groupBy('bbd_qyxx_id') \
         .count() \
@@ -605,7 +606,7 @@ def run():
         AND
         pubdate <= '{relation_version}'
         '''.format(version=CIRCXZCF_VERSION,
-                   relation_version=RELATION_VERSION)
+                   relation_version=FORMAT_RELATION_VERSION)
     )
     circxzcf_count_df = circxzcf_df.groupBy('bbd_qyxx_id') \
         .count() \
@@ -720,13 +721,15 @@ def run():
                                                   path=OUT_PATH))
 
 
-    
+
 if __name__ == "__main__":
     conf = configparser.ConfigParser()    
     conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
 
     #关联方版本
     RELATION_VERSION = sys.argv[1]
+    FORMAT_RELATION_VERSION = datetime.datetime.strptime(
+        RELATION_VERSION, '%Y%m%d').strftime('%Y-%m-%d')
     
     #输入数据版本
     BASIC_VERSION = conf.get('common_company_info', 'BASIC_VERSION')
