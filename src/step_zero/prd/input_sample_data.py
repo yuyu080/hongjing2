@@ -46,8 +46,6 @@ def raw_spark_data_flow():
         raw_tags_df.company_type.isin(TYPE_LIST)
     ).withColumn(
         'weight', get_type_weight_udf('company_type')
-    ).dropDuplicates(
-        ['bbd_qyxx_id', 'company_name']
     )
     
     #网络借贷P2P 
