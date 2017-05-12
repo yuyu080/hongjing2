@@ -801,7 +801,7 @@ def get_spark_session():
     conf = SparkConf()
     conf.setMaster('yarn-client')
     conf.set("spark.yarn.am.cores", 15)
-    conf.set("spark.executor.memory", "60g")
+    conf.set("spark.executor.memory", "70g")
     conf.set("spark.executor.instances", 20)
     conf.set("spark.executor.cores", 10)
     conf.set("spark.python.worker.memory", "3g")
