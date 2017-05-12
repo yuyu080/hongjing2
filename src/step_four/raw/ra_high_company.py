@@ -21,9 +21,17 @@ from pyspark.sql import types as tp
 def get_into_date(date_list):
     '''
     企业“进入日期”
+    只有高危企业才有进入日期
     '''
-    date_list.sort()
-    return date_list[0]
+    into_date = NEW_VERSION
+    for index in range(len(VERSION_LIST)-1, -1, -1):
+        each_date = VERSION_LIST[index]
+        if each_date in date_list:
+            into_date = each_date
+        else:
+            break
+    return into_date
+
 
 def is_new(col):
     '''
@@ -97,7 +105,30 @@ def spark_data_flow():
     is_new_udf = fun.udf(is_new, tp.IntegerType())
     is_rise_udf = fun.udf(is_rise, tp.IntegerType())    
     
-    tid_df = raw_spark_data_flow()
+    raw_df = raw_spark_data_flow()
+    new_df = get_df(NEW_VERSION)
+    
+    #只有当前风险版本为“高危预警”的企业才会参与计算
+    tid_df = raw_df.join(
+        new_df,
+        raw_df.company_name == new_df.company_name,
+    ).select(
+        raw_df.company_name,
+        raw_df.bbd_qyxx_id,
+        raw_df.risk_tags,
+        raw_df.risk_index,
+        raw_df.risk_composition,
+        raw_df.province,
+        raw_df.city,
+        raw_df.county,
+        raw_df.is_black,
+        raw_df.company_type,
+        raw_df.xgxx_info,
+        raw_df.risk_rank,
+        raw_df.data_version,
+        raw_df.gmt_create,
+        raw_df.gmt_update
+    )
     
     #计算企业的“进入时间”
     tmp_df = tid_df.groupBy(
