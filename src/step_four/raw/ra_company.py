@@ -28,7 +28,7 @@ def get_rank_change(old_rank, new_rank, old_xgxx_info, new_xgxx_info):
     }
     
     #只要风险等级升高，就提示上升
-    if rank_dict[new_rank] - rank_dict[old_rank] > 0:
+    if rank_dict.get(new_rank, 0) - rank_dict.get(old_rank, 0) > 0:
         result = 1
     
     #相关信息只要有一个上升就返回上升
@@ -45,6 +45,14 @@ def get_xgxx_change(old_xgxx, new_xgxx):
     '''
     获取相关信息的变动情况，并按照一定格式输出
     '''
+    def is_rise(num_one, num_two):
+        if num_two - num_one > 0:
+            return 1
+        elif num_two - num_one < 0:
+            return -1
+        else:
+            return 0
+    
     if old_xgxx and new_xgxx:
         old_xgxx_obj = json.loads(old_xgxx)
         new_xgxx_obj = json.loads(new_xgxx)
@@ -56,7 +64,7 @@ def get_xgxx_change(old_xgxx, new_xgxx):
             {
                 "type": each_key,
                 "value": new_xgxx_obj[each_key],
-                "isupdate": get_risk_change(
+                "isupdate": is_rise(
                     old_xgxx_obj[each_key],
                     new_xgxx_obj[each_key]
                 )
@@ -154,7 +162,7 @@ def tid_spark_data_flow():
     new_df = get_df(NEW_VERSION)
     raw_df = raw_spark_data_flow()        
         
-    #易燃指数是否上升
+    #易燃等级是否上升
     tmp_new_df = new_df.select(
         'company_name',
         'risk_rank'
