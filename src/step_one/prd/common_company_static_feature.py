@@ -1017,10 +1017,10 @@ class FeatureConstruction(object):
             def get_date_density(difference_list, timedelta):
                 time_density_list = []
                 for index, date in enumerate(difference_list):
-                    if date < 15:
+                    if date < timedelta:
                         s = 0
                         i = 1
-                        while(s < 15 and i <= len(difference_list) - index):
+                        while(s < timedelta and i <= len(difference_list) - index):
                             i += 1
                             s = sum(difference_list[index:index+i])
                         time_density_list.append(i)
