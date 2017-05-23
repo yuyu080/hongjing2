@@ -34,19 +34,13 @@ def get_json_obj(row):
                      'platform_state']}
     #加入该平台的状态
     risk_composition['platform_state'] = row['platform_state']
+    risk_index = row['total_score']
+    risk_composition['total_score'] = row['total_score']
         
     platform_risk_composition = {
         row['platform_name']: risk_composition
     }
     
-    if (row['platform_state'] == u'正常' or 
-            row['platform_state'] == 'NULL'):
-        risk_index = row['total_score']
-        risk_composition['total_score'] = row['total_score']
-    else:
-        risk_index = 100.
-        risk_composition['total_score'] = 100.
-
     return Row(
         bbd_qyxx_id=row['bbd_qyxx_id'],
         company_name=row['company_name'],
