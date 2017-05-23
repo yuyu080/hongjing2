@@ -181,7 +181,7 @@ def run():
         url=URL,
         user=PROP['user'],
         password=PROP['password'],
-        table='ra_gather_place',
+        table=TABLE,
         path=OUT_PATH
     )
     )
