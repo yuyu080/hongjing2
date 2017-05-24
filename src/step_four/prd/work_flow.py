@@ -177,22 +177,20 @@ def step_two(version):
     
 def step_three(step_child_name, version):
     if step_child_name == 'raw':
-#==============================================================================
-#         result_one = execute_some_step('step_three', 'raw', 
-#                                          'ex_info_merge.py',
-#                                          version)
-#         is_success(result_one, 'step_three', 'raw',
-#                    'ex_info_merge.py', 
-#                    version)
-# 
-#         result_two = execute_some_step('step_three', 'raw', 
-#                                          'nf_info_merge.py',
-#                                          version)
-#         is_success(result_two, 'step_three', 'raw',
-#                    'nf_info_merge.py',
-#                    version)
-#         
-#==============================================================================
+        result_one = execute_some_step('step_three', 'raw', 
+                                         'ex_info_merge.py',
+                                         version)
+        is_success(result_one, 'step_three', 'raw',
+                   'ex_info_merge.py', 
+                   version)
+
+        result_two = execute_some_step('step_three', 'raw', 
+                                         'nf_info_merge.py',
+                                         version)
+        is_success(result_two, 'step_three', 'raw',
+                   'nf_info_merge.py',
+                   version)
+        
         result_three = execute_some_step('step_three', 'raw', 
                                          'p2p_info_merge.py',
                                          version)
@@ -200,31 +198,27 @@ def step_three(step_child_name, version):
                    'p2p_info_merge.py',
                    version)
         
-#==============================================================================
-#         result_four = execute_some_step('step_three', 'raw', 
-#                                          'pe_info_merge.py',
-#                                          version)
-#         is_success(result_four, 'step_three', 'raw',
-#                    'pe_info_merge.py',
-#                    version)
-#         
-#==============================================================================
+        result_four = execute_some_step('step_three', 'raw', 
+                                         'pe_info_merge.py',
+                                         version)
+        is_success(result_four, 'step_three', 'raw',
+                   'pe_info_merge.py',
+                   version)
+        
     if step_child_name == 'tid':
-#==============================================================================
-#         result_five = execute_some_step('step_three', 'tid', 
-#                                          'ex_feature_tags.py',
-#                                          version)
-#         is_success(result_five, 'step_three', 'tid',
-#                    'ex_feature_tags.py',
-#                    version)
-#         
-#         result_six = execute_some_step('step_three', 'tid', 
-#                                          'nf_feature_tags.py',
-#                                          version)
-#         is_success(result_six, 'step_three', 'tid',
-#                    'nf_feature_tags.py',
-#                    version)
-#==============================================================================
+        result_five = execute_some_step('step_three', 'tid', 
+                                         'ex_feature_tags.py',
+                                         version)
+        is_success(result_five, 'step_three', 'tid',
+                   'ex_feature_tags.py',
+                   version)
+        
+        result_six = execute_some_step('step_three', 'tid', 
+                                         'nf_feature_tags.py',
+                                         version)
+        is_success(result_six, 'step_three', 'tid',
+                   'nf_feature_tags.py',
+                   version)
         
         result_seven = execute_some_step('step_three', 'tid', 
                                          'p2p_feature_tags.py',
@@ -233,14 +227,13 @@ def step_three(step_child_name, version):
                    'p2p_feature_tags.py',
                    version)
         
-#==============================================================================
-#         result_eight = execute_some_step('step_three', 'tid', 
-#                                          'pe_feature_tags.py',
-#                                          version)
-#         is_success(result_eight, 'step_three', 'tid',
-#                    'pe_feature_tags.py',
-#                    version)
-#==============================================================================
+        result_eight = execute_some_step('step_three', 'tid', 
+                                         'pe_feature_tags.py',
+                                         version)
+        is_success(result_eight, 'step_three', 'tid',
+                   'pe_feature_tags.py',
+                   version)
+
         
     if step_child_name == 'prd':
         result_nine = execute_some_step('step_three', 'prd', 
@@ -267,21 +260,19 @@ def run(is_history_back):
                 old_version = RELATION_VERSIONS[index-3]
                 new_version = relation_version        
             
-#==============================================================================
-#             step_zero('prd', new_version)
-#             #这里的old_version是用于计算动态风险的，时间间隔为一个季度
-#             step_one('raw', 
-#                      old_version=old_version, 
-#                      new_version=new_version)
-#             step_one('tid', 
-#                      old_version=old_version, 
-#                      new_version=new_version)
-#             step_one('prd', 
-#                      old_version=old_version, 
-#                      new_version=new_version)
-#             
-#             step_two(new_version)
-#==============================================================================
+            step_zero('prd', new_version)
+            #这里的old_version是用于计算动态风险的，时间间隔为一个季度
+            step_one('raw', 
+                     old_version=old_version, 
+                     new_version=new_version)
+            step_one('tid', 
+                     old_version=old_version, 
+                     new_version=new_version)
+            step_one('prd', 
+                     old_version=old_version, 
+                     new_version=new_version)
+            
+            step_two(new_version)
             
             step_three('raw', new_version)
             step_three('tid', new_version)
