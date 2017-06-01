@@ -665,7 +665,8 @@ def run():
         'black' company_type
         FROM 
         dw.qyxg_leijinrong_blacklist
-        '''
+        dt='{version}'
+        '''.format(version=BLACK_VERSION)
     ).dropDuplicates(
         ['company_name']    
     )
@@ -750,6 +751,7 @@ if __name__ == "__main__":
     JYYC_VERSION = conf.get('common_company_info', 'JYYC_VERSION')
     CIRCXZCF_VERSION = conf.get('common_company_info', 'CIRCXZCF_VERSION')
     FZJG_VERSION = conf.get('common_company_info', 'CIRCXZCF_VERSION')
+    BLACK_VERSION = conf.get('common_company_info', 'BLACK_VERSION')
     SAMPLE_VERSION = RELATION_VERSION
     
     #数据输出路径
