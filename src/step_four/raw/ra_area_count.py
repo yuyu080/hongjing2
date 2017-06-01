@@ -103,10 +103,16 @@ def raw_spark_data_flow():
     #读取原始输入
     old_df =  spark.read.parquet(
         ("/user/antifraud/hongjing2/dataflow/step_three/prd"
-        "/all_company_info/{version}").format(version=OLD_VERSION))
+        "/all_company_info/{version}").format(version=OLD_VERSION)
+    ).fillna(
+        {'city': u'无', 'county': u'无', 'province': u'无'}
+    )
     new_df =  spark.read.parquet(
         ("/user/antifraud/hongjing2/dataflow/step_three/prd"
-        "/all_company_info/{version}").format(version=NEW_VERSION))    
+        "/all_company_info/{version}").format(version=NEW_VERSION)
+    ).fillna(
+        {'city': u'无', 'county': u'无', 'province': u'无'}
+    )
 
     #高危企业数
     high_risk_count_df = new_df.select(
@@ -121,6 +127,8 @@ def raw_spark_data_flow():
     ).count(
     ).withColumnRenamed(
         'count', 'high_risk_num'
+    ).fillna(
+        {'city': u'无', 'county': u'无', 'province': u'无'}
     ).cache()
     
     #重点关注企业数
@@ -136,6 +144,8 @@ def raw_spark_data_flow():
     ).count(
     ).withColumnRenamed(
         'count', 'focus_on_num'
+    ).fillna(
+        {'city': u'无', 'county': u'无', 'province': u'无'}
     ).cache()
     
     #持续监控企业数   
@@ -151,7 +161,9 @@ def raw_spark_data_flow():
     ).count(
     ).withColumnRenamed(
         'count', 'constantly_monitor_num'
-    ).cache()    
+    ).fillna(
+        {'city': u'无', 'county': u'无', 'province': u'无'}
+    ).cache()
     
     
     #监控企业数
@@ -165,6 +177,8 @@ def raw_spark_data_flow():
     ).count(
     ).withColumnRenamed(
         'count', 'supervise_num'
+    ).fillna(
+        {'city': u'无', 'county': u'无', 'province': u'无'}
     ).cache()
     
     #新兴金融、网络借贷、私募基金、交易场所
@@ -187,6 +201,8 @@ def raw_spark_data_flow():
         {'company_type_merge': 'collect_list'}
     ).withColumnRenamed(
         'collect_list(company_type_merge)', 'company_type_merge'
+    ).fillna(
+        {'city': u'无', 'county': u'无', 'province': u'无'}
     ).cache()
     
     #新增高危企业、减少高危企业
@@ -238,6 +254,8 @@ def raw_spark_data_flow():
         'county',
         tmp_new_2_df.risk_change_num.getItem('decline').alias('risk_decline_num'),
         tmp_new_2_df.risk_change_num.getItem('rise').alias('risk_rise_num')
+    ).fillna(
+        {'city': u'无', 'county': u'无', 'province': u'无'}
     ).cache()
     
     #监控企业变动情况
@@ -287,6 +305,8 @@ def raw_spark_data_flow():
         tmp_new_4_df.risk_change_num.getItem(
             'decline').alias('all_decline_num'),
         tmp_new_4_df.risk_change_num.getItem('rise').alias('all_rise_num')
+    ).fillna(
+        {'city': u'无', 'county': u'无', 'province': u'无'}
     ).cache()
     
     #组合所有的字段
@@ -369,15 +389,9 @@ def spark_data_flow():
         tid_new_df.gmt_create,
         tid_new_df.gmt_update
     ).fillna(
+        {'city': u'无', 'area': u'无', 'province': u'无'}
+    ).fillna(
         0
-    )
-    
-    prd_new_df = prd_new_df.where(
-        prd_new_df.province.isNotNull()          
-    ).where(
-        prd_new_df.city.isNotNull()
-    ).where(
-        prd_new_df.area.isNotNull()
     )
     
     return prd_new_df
