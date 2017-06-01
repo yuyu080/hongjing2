@@ -125,7 +125,7 @@ def get_subdivision_index(row):
 def spark_data_flow(input_version):
     feature_df = spark.read.parquet(
     "{path}/ex_feature_merge/{version}".format(path=IN_PATH,
-                                                   version=input_version))
+                                               version=input_version))
 
     feature_rdd = feature_df.rdd \
         .coalesce(100) \

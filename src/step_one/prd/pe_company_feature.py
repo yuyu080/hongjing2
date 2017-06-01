@@ -289,7 +289,7 @@ def spark_data_flow(smjj_version):
             8, udf_return_type)('interim_after_fund').alias('pe_feature_8'),         
         SparkUdf.define_spark_udf(
             9, udf_return_type)('interim_before_fund', 
-                                'interim_after_fund').alias('pe_feature_9'),         
+                                'interim_after_fund').alias('pe_feature_9'),   
         SparkUdf.define_spark_udf(
             10, 
             tp.MapType(tp.StringType(), tp.StringType())
