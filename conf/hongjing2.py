@@ -38,7 +38,7 @@ WEIGHT_DICT = {
 
 #适用于通用模型的部分
 #dw.qyxx_tags 
-TAGS_VERSION = 20170521
+TAGS_VERSION = 20170523
 TYPE_LIST = [u'新兴金融', u'融资担保', u'小额贷款']
 
 #网络借贷P2P
@@ -98,7 +98,7 @@ CIRCXZCF_VERSION = 20170521
 #dw.qyxx_fzjg_extend
 FZJG_VERSION = 20170521
 #dw.qyxg_leijinrong_blacklist
-#BLACK_VERSION = 20170406
+BLACK_VERSION = 20170527
 
 OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/raw/
 
