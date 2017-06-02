@@ -241,6 +241,7 @@ def step_three(step_child_name, version):
                                         version)
         is_success(result_nine, 'step_three', 'prd',
                    'all_company_info.py',
+ 
                    version)
        
 def step_four():
@@ -298,7 +299,7 @@ def run(is_history_back):
                  old_version=dynamic_old_version, 
                  new_version=NEW_VERSION)
 
-        step_two(new_version)
+        step_two(NEW_VERSION)
         
         step_three('raw', NEW_VERSION)
         step_three('tid', NEW_VERSION)
@@ -371,5 +372,5 @@ if __name__ == '__main__':
     URL = conf.get('mysql', 'URL')
     PROP = eval(conf.get('mysql', 'PROP'))
 
-    run(is_history_back=True)
+    run(is_history_back=False)
     into_mysql(NEW_VERSION)
