@@ -154,13 +154,19 @@ def spark_data_flow():
     )
     
     #过滤一部分企业
-    url = "jdbc:mysql://10.10.10.12:3306/bbd_higgs?characterEncoding=UTF-8"
-    prop = {"user": "reader", "password":"Hkjhsdwe35", 
-            "driver": "com.mysql.jdbc.Driver"}
-    table = "qyxx_black_company"        
-    filter_df = spark.read.jdbc(url=url, 
-                                table=table, 
-                                properties=prop).cache()
+    filter_df = spark.sql(
+        '''
+        SELECT
+        company_name,
+        bbd_qyxx_id,
+        tag
+        FROM
+        dw.qyxx_black_company
+        WHERE
+        dt='{version}'
+        '''.format(version=FILTER_VERSION)
+    )
+    #这里有个特殊规则：通过过滤名单中的“新兴金融”类企业过滤除私募基金外的所有企业
     hongjing_filter_df = filter_df.where(filter_df.tag == u'新兴金融')
     tid_all_df = tid_all_df.join(
         hongjing_filter_df,
@@ -251,6 +257,9 @@ if __name__ == '__main__':
     #交易场所
     #dw.qyxg_exchange
     EXCHANGE_VERSION = conf.get('input_sample_data', 'EXCHANGE_VERSION')
+    
+    #需要过滤的数据版本
+    FILTER_VERSION = conf.get('input_sample_data', 'FILTER_VERSION')
     
     #中间结果版本，输出版本
     RELATION_VERSION = sys.argv[1]
