@@ -665,6 +665,7 @@ def run():
         'black' company_type
         FROM 
         dw.qyxg_leijinrong_blacklist
+        WHERE
         dt='{version}'
         '''.format(version=BLACK_VERSION)
     ).dropDuplicates(
