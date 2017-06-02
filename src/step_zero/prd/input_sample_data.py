@@ -135,7 +135,7 @@ def raw_spark_data_flow():
     return raw_all_df
 
 def spark_data_flow():
-    raw_all_df = raw_spark_data_flow()    
+    raw_all_df = raw_spark_data_flow()  
     
     #取权重最高的那一个company_type
     window = Window.partitionBy(
@@ -153,8 +153,35 @@ def spark_data_flow():
         'row_number == 1'
     )
     
+    #过滤一部分企业
+    url = "jdbc:mysql://10.10.10.12:3306/bbd_higgs?characterEncoding=UTF-8"
+    prop = {"user": "reader", "password":"Hkjhsdwe35", 
+            "driver": "com.mysql.jdbc.Driver"}
+    table = "qyxx_black_company"        
+    filter_df = spark.read.jdbc(url=url, 
+                                table=table, 
+                                properties=prop).cache()
+    hongjing_filter_df = filter_df.where(filter_df.tag == u'新兴金融')
+    tid_all_df = tid_all_df.join(
+        hongjing_filter_df,
+        hongjing_filter_df.bbd_qyxx_id == tid_all_df.bbd_qyxx_id, 
+        'left_outer'
+    ).where(
+        fun.when(
+            hongjing_filter_df.bbd_qyxx_id.isNull(), True
+        ).when(
+            tid_all_df.company_type == u'私募基金', True
+        )
+    ).select(
+        tid_all_df.bbd_qyxx_id,
+        tid_all_df.company_name,
+        tid_all_df.company_type
+    ).cache()
+    
     #输出
-    prd_all_df = tid_all_df.select(
+    prd_all_df = tid_all_df.dropDuplicates(
+        ['bbd_qyxx_id', 'company_name']
+    ).select(
         'bbd_qyxx_id',
         'company_name',
         'company_type',    
