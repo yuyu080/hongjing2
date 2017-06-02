@@ -55,6 +55,9 @@ SMJJ_VERSION = 20170521
 #dw.qyxg_exchange
 EXCHANGE_VERSION = 20170521
 
+#需要过滤的数据版本
+FILTER_VERSION = 20170531
+
 #输出路径
 OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/raw/
 
@@ -98,7 +101,7 @@ CIRCXZCF_VERSION = 20170521
 #dw.qyxx_fzjg_extend
 FZJG_VERSION = 20170521
 #dw.qyxg_leijinrong_blacklist
-BLACK_VERSION = 20170527
+BLACK_VERSION = 20170602
 
 OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/raw/
 
