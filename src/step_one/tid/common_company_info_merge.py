@@ -155,7 +155,11 @@ def run(relation_version):
     namefrag_df = spark.read.parquet(
         get_read_path(file_name='namefrag', 
                       version=LEIJINRONG_VERSION))
-
+    
+    black_df = spark.read.parquet(
+        get_read_path(file_name='black_company', 
+                      version=BLACK_VERSION))
+    
     black_province_df = spark.read.parquet(
         get_read_path(file_name='black_province', 
                       version=BLACK_VERSION))
@@ -188,17 +192,7 @@ def run(relation_version):
         destination_degree <= 3
         '''.format(version=relation_version)
     )
-    black_df = spark.sql(
-        '''
-        SELECT 
-        company_name, 
-        'black' company_type
-        FROM 
-        dw.qyxg_leijinrong_blacklist
-        '''
-    ).dropDuplicates(
-        ['company_name']    
-    )
+
         
     #2.1 解析关联方，获取全量公司列表
     #由于历史关联方的更新问题，这里从sample中选取最新的bbd_qyxx_id
@@ -856,7 +850,7 @@ if __name__ == "__main__":
     FZJG_VERSION = RELATION_VERSION
     BLACK_VERSION = RELATION_VERSION
     LEIJINRONG_VERSION = RELATION_VERSION
-
+    
     #输入输出路径
     IN_PATH = conf.get('common_company_info_merge', 'IN_PATH')
     OUT_PATH = conf.get('common_company_info_merge', 'OUT_PATH')
