@@ -372,5 +372,5 @@ if __name__ == '__main__':
     URL = conf.get('mysql', 'URL')
     PROP = eval(conf.get('mysql', 'PROP'))
 
-    run(is_history_back=False)
+    run(is_history_back=True)
     into_mysql(NEW_VERSION)
