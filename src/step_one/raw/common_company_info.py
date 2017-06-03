@@ -671,6 +671,14 @@ def run():
     ).dropDuplicates(
         ['company_name']    
     )
+    os.system(
+        ("hadoop fs -rmr "
+         "{path}/black_company/{version}").format(version=RELATION_VERSION, 
+                                                  path=OUT_PATH))
+    black_df.repartition(10).write.parquet(
+        "{path}/black_company/{version}".format(version=RELATION_VERSION, 
+                                                path=OUT_PATH))   
+    
     #黑企业省份分布
     black_province_df  = black_df.join(
         basic_df,
