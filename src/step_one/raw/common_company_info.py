@@ -73,6 +73,17 @@ def has_keyword(opescope):
     else:
         return 'k_0'
 
+def get_change_num(s1, s2):
+    '''
+    解析注册资本
+    '''
+    try:
+        import re
+        s1_analysis = re.search('[\d\.]+', s1).group()
+        s2_analysis = re.search('[\d\.]+', s2).group()
+        return round(float(s2_analysis) - float(s1_analysis), 1)
+    except:
+        return 0.
 
 def get_company_namefrag(iterator):
     '''
@@ -127,6 +138,8 @@ def run():
     add_col_udf = fun.udf(add_col, tp.ArrayType(tp.StringType()))
     is_not_revoked_udf = fun.udf(is_not_revoked, tp.IntegerType())
     has_keyword_udf = fun.udf(has_keyword, tp.StringType())
+    get_change_num_udf = fun.udf(get_change_num, tp.FloatType())
+
 
     #原始样本,由step_zero_prd得到
     sample_df = spark.read.parquet(
@@ -292,8 +305,51 @@ def run():
     bgxx_df.repartition(10).write.parquet(
         "{path}/bgxx/{version}".format(version=RELATION_VERSION, 
                                        path=OUT_PATH))
+
+    #注册资本变更
+    bgxx_capital_df = spark.sql(
+        '''
+        SELECT 
+        bbd_qyxx_id,
+        change_date,
+        content_before_change, 
+        content_after_change
+        FROM
+        dw.qyxx_bgxx
+        WHERE
+        dt='{version}' 
+        AND
+        change_date <= '{relation_version}'
+        AND
+        change_items like '%注册资本%' 
+        '''.format(version=BGXX_VERSION,
+                   relation_version=FORMAT_RELATION_VERSION)
+    )
+    bgxx_capital_df = bgxx_capital_df.withColumn(
+        'tid_tuple', 
+        add_col_udf(bgxx_capital_df.change_date.astype(tp.StringType()), 
+                    get_change_num_udf(
+                        'content_before_change', 
+                        'content_after_change').alias('change_info'))
+    ).groupBy(
+        'bbd_qyxx_id'
+    ).agg(
+        {'tid_tuple': 'collect_list'}
+    ).withColumnRenamed(
+        'collect_list(tid_tuple)', 'tid_list'
+    ).select(
+        'bbd_qyxx_id', 'tid_list'
+    )
+    os.system(
+        "hadoop fs -rmr {path}/bgxx_capital/{version}".format(version=RELATION_VERSION,
+                                                              path=OUT_PATH))
+    bgxx_capital_df.repartition(10).write.parquet(
+        "{path}/bgxx_capital/{version}".format(version=RELATION_VERSION,
+                                               path=OUT_PATH))
+
     
     #招聘信息
+    #招聘学历分布
     recruit_df = spark.sql(
         '''
         SELECT 
@@ -311,20 +367,66 @@ def run():
         '''.format(version=RECRUIT_VERSION,
                    relation_version=FORMAT_RELATION_VERSION)
     )
-    recruit_df = recruit_df \
-        .withColumn('tid_tuple', 
-                    add_col_udf('education_required', 'bbd_recruit_num')) \
-        .groupBy('bbd_qyxx_id') \
-        .agg({'tid_tuple': 'collect_list'}) \
-        .withColumnRenamed('collect_list(tid_tuple)', 'tid_list') \
-        .withColumn('recruit_dict', to_dict_udf('tid_list')) \
-        .select('bbd_qyxx_id', 'recruit_dict')
+    recruit_df = recruit_df.withColumn(
+        'tid_tuple', add_col_udf('education_required', 'bbd_recruit_num')
+    ).groupBy(
+        'bbd_qyxx_id'
+    ).agg(
+        {'tid_tuple': 'collect_list'}
+    ).withColumnRenamed(
+        'collect_list(tid_tuple)', 'tid_list'
+    ).withColumn(
+        'recruit_dict', to_dict_udf('tid_list')
+    ).select(
+        'bbd_qyxx_id', 'recruit_dict'
+    )
     os.system(
         "hadoop fs -rmr {path}/recruit/{version}".format(version=RELATION_VERSION, 
                                                          path=OUT_PATH))
     recruit_df.repartition(10).write.parquet(
         "{path}/recruit/{version}".format(version=RELATION_VERSION, 
                                           path=OUT_PATH))
+
+    #招聘行业分布
+    recruit_industry_df = spark.sql(
+        '''
+        SELECT 
+        bbd_qyxx_id,
+        sum(bbd_recruit_num) bbd_recruit_num,
+        bbd_industry
+        FROM
+        dw.recruit
+        WHERE
+        dt='{version}' 
+        AND
+        pubdate <= '{relation_version}'
+        GROUP BY
+        bbd_qyxx_id, bbd_industry
+        '''.format(version=RECRUIT_VERSION,
+                   relation_version=FORMAT_RELATION_VERSION)
+    )
+    recruit_industry_df = recruit_industry_df.withColumn(
+        'tid_tuple', add_col_udf('bbd_industry', 'bbd_recruit_num')
+    ).groupBy(
+        'bbd_qyxx_id'
+    ).agg(
+        {'tid_tuple': 'collect_list'}
+    ).withColumnRenamed(
+        'collect_list(tid_tuple)', 'tid_list'
+    ).withColumn(
+        'recruit_dict', to_dict_udf('tid_list')
+    ).select(
+        'bbd_qyxx_id', 'recruit_dict'
+    )
+    os.system(
+        "hadoop fs -rmr {path}/recruit_industry/{version}".format(version=RELATION_VERSION, 
+                                                                  path=OUT_PATH))
+    recruit_industry_df.repartition(
+        10
+    ).write.parquet(
+        "{path}/recruit_industry/{version}".format(version=RELATION_VERSION, 
+                                                   path=OUT_PATH))
+
     
     #招标信息
     zhaobiao_df = spark.sql(
@@ -440,8 +542,39 @@ def run():
     zgcpwsw_count_df.repartition(10).write.parquet(
         "{path}/zgcpwsw/{version}".format(version=RELATION_VERSION, 
                                           path=OUT_PATH))
-    
-    
+
+    #非法集资案件的裁判文书
+    zgcpwsw_specific_df = spark.sql(
+        '''
+        SELECT
+        bbd_qyxx_id,
+        action_cause,
+        litigant_type,
+        caseout_come 
+        FROM
+        dw.zgcpwsw 
+        WHERE
+        dt='{version}'
+        AND
+        (action_cause like '%非法吸收公众存款%' or action_cause like '%集资诈骗%')
+        AND
+        sentence_date <= '{relation_version}'
+        '''.format(version=ZGCPWSW_VERSION,
+                   relation_version=FORMAT_RELATION_VERSION)
+    )
+    zgcpwsw_specific_count_df = zgcpwsw_specific_df.groupBy(
+        'bbd_qyxx_id'
+    ).count(
+    ).withColumnRenamed(
+        'count', 'zgcpwsw_specific_num'
+    )
+    os.system(
+        "hadoop fs -rmr {path}/zgcpwsw_specific/{version}".format(version=RELATION_VERSION, 
+                                                                  path=OUT_PATH))
+    zgcpwsw_specific_count_df.repartition(10).write.parquet(
+        "{path}/zgcpwsw_specific/{version}".format(version=RELATION_VERSION, 
+                                                   path=OUT_PATH))
+
     #法院公告
     rmfygg_df = spark.sql(
         '''
@@ -624,7 +757,9 @@ def run():
     fzjg_df = spark.sql(
         '''
         SELECT
-        bbd_qyxx_id
+        bbd_qyxx_id,
+        name fzjg_name,
+        1 is_fzjg
         FROM
         dw.qyxx_fzjg_extend
         WHERE
@@ -639,8 +774,20 @@ def run():
                                                       path=OUT_PATH))
     fzjg_count_df.repartition(10).write.parquet(
         "{path}/fzjg/{version}".format(version=RELATION_VERSION, 
-                                       path=OUT_PATH))
-    
+                                       path=OUT_PATH))   
+    os.system(
+        "hadoop fs -rmr {path}/fzjg_name/{version}".format(version=RELATION_VERSION, 
+                                                           path=OUT_PATH))
+    fzjg_df.select(
+        'fzjg_name',
+        'is_fzjg'
+    ).repartition(
+        10
+    ).write.parquet(
+        "{path}/fzjg_name/{version}".format(version=RELATION_VERSION, 
+                                            path=OUT_PATH)
+    )
+
     
     #公司字号
     namefrag_df = sample_df.rdd \

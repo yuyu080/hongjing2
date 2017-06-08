@@ -113,7 +113,7 @@ OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/raw/
 
 IN_PATH = /user/antifraud/hongjing2/dataflow/step_one/raw/
 OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/tid/
-
+TMP_PATH = /user/antifraud/hongjing2/dataflow/step_one/tmp/
 
 
 

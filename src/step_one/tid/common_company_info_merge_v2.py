@@ -5,7 +5,7 @@
 --master yarn \
 --deploy-mode client \
 --driver-memory 15g \
-common_company_info_merge.py {version}
+common_company_info_merge_v2.py {version}
 '''
 
 import os
@@ -16,10 +16,42 @@ from pyspark.sql.types import (StructType, StructField,
                                StringType, IntegerType, 
                                BooleanType)
 from pyspark.sql import functions as fun
+from pyspark.sql import  types as tp
 from pyspark.sql import SparkSession, Row
 from pyspark.conf import SparkConf
 
+def is_common_interests(frag, company_name):
+    '''
+    目标工公司是否与企业存在利益一致行动关系
+    '''
+    def is_similarity(str_1, str_2):
+        '''
+        判断两个字符串是否有连续2个字相同
+        '''
+        try:
+            token_1 = [
+                str_1[index] + str_1[index+1] 
+                for index,data in enumerate(str_1) 
+                if index < len(str_1) - 1]
+            is_similarity = sum([
+                    1 for each_token in token_1 
+                    if each_token in str_2])
+            return 1 if is_similarity > 0 else 0        
+        except:
+            return 0
+    return is_similarity(frag, company_name)
 
+
+def is_common_address(address1, address2):
+    '''
+    是否有相同的address
+    '''
+    return 1 if address1 == address2 else 0
+
+def get_read_path(file_name, version):
+    return "{path}/{file_name}/{version}".format(version=version,
+                                                 file_name=file_name,
+                                                 path=IN_PATH)
 
 def is_invest(edge_iter):
     '''
@@ -53,9 +85,7 @@ def is_invest(edge_iter):
             b_name=edge_iter.data[0].b_name,
             c_name=edge_iter.data[0].c_name)
             
-
-
-def run(relation_version):
+def raw_spark_data_flow():
     '''
     新版关联方处理（投资与被投资关系）
     
@@ -68,28 +98,13 @@ def run(relation_version):
         (sample_df + tid_df + tid_company_info_df) -> tid_company_merge_df
     
     '''
-
+    is_new_finance_udf = fun.udf(lambda r: True, tp.BooleanType())
+    
     #2.0 输入数据读取
-    def get_read_path(file_name, version):
-        return "{path}/{file_name}/{version}".format(version=version,
-                                                     file_name=file_name,
-                                                     path=IN_PATH)
-    #这里有个特殊逻辑，需要过滤通用部分的企业    
-    def filter_company_type(company_type, type_list=TYPE_LIST):
-        '''保留没在TYPE_LIST中的企业'''
-        if company_type not in type_list:
-            return True
-        else:
-            return False
-    filter_company_type_udf = fun.udf(
-        filter_company_type, BooleanType()
-    )
+        
     sample_df = spark.read.parquet(
         get_read_path(file_name='ljr_sample', 
                       version=LEIJINRONG_VERSION))
-    sample_df = sample_df.where(
-        filter_company_type_udf(sample_df.company_type)
-    )
 
     so_df = spark.read.parquet(
         get_read_path(file_name='qyxx_state_owned_enterprise_background', 
@@ -114,9 +129,17 @@ def run(relation_version):
     bgxx_df = spark.read.parquet(
         get_read_path(file_name='bgxx', 
                       version=BGXX_VERSION))
+    
+    bgxx_capital_df = spark.read.parquet(
+        get_read_path(file_name='bgxx_capital', 
+                      version=BGXX_VERSION))    
 
     recruit_df = spark.read.parquet(
         get_read_path(file_name='recruit', 
+                      version=RECRUIT_VERSION))
+    
+    recruit_industry_df = spark.read.parquet(
+        get_read_path(file_name='recruit_industry', 
                       version=RECRUIT_VERSION))
     
     zhaobiao_count_df = spark.read.parquet(
@@ -133,6 +156,10 @@ def run(relation_version):
 
     zgcpwsw_count_df = spark.read.parquet(
         get_read_path(file_name='zgcpwsw', 
+                      version=ZGCPWSW_VERSION))
+
+    zgcpwsw_specific_count_df = spark.read.parquet(
+        get_read_path(file_name='zgcpwsw_specific', 
                       version=ZGCPWSW_VERSION))
 
     rmfygg_count_df = spark.read.parquet(
@@ -167,6 +194,10 @@ def run(relation_version):
         get_read_path(file_name='fzjg', 
                       version=FZJG_VERSION))
 
+    fzjg_name_df = spark.read.parquet(
+        get_read_path(file_name='fzjg_name', 
+                      version=FZJG_VERSION))
+
     namefrag_df = spark.read.parquet(
         get_read_path(file_name='namefrag', 
                       version=LEIJINRONG_VERSION))
@@ -182,6 +213,13 @@ def run(relation_version):
     leijinrong_province_df = spark.read.parquet(
         get_read_path(file_name='leijinrong_province', 
                       version=LEIJINRONG_VERSION))
+    
+    new_finance_df = spark.read.parquet(
+        get_read_path(file_name='ljr_sample', 
+                      version=LEIJINRONG_VERSION)
+    ).withColumn(
+        'is_new_finance', is_new_finance_udf('bbd_qyxx_id')
+    )
 
     #原始关联方
     relation_df = spark.sql(
@@ -205,14 +243,12 @@ def run(relation_version):
         source_degree <= 3
         AND
         destination_degree <= 3
-        '''.format(version=relation_version)
+        '''.format(version=RELATION_VERSION)
     )
-
-        
+    
+    
     #2.1 解析关联方，获取全量公司列表
     #由于历史关联方的更新问题，这里从sample中选取最新的bbd_qyxx_id
-
-         
     tid_df = sample_df.join(
         relation_df,
         fun.trim(relation_df.a_name) == fun.trim(sample_df.company_name),
@@ -266,7 +302,7 @@ def run(relation_version):
     ).dropDuplicates(
         ['bbd_qyxx_id']
     ).cache()
-
+    
     #2.2 合并所有公司的相关信息
     #国企
     tid_company_info_df = tid_company_list_df.join(
@@ -280,7 +316,7 @@ def run(relation_version):
             so_df.company_type.isNotNull(), True
         ).otherwise(False).alias('isSOcompany')
     )
-    
+        
     #基本信息
     tid_company_info_df = tid_company_info_df.join(
         basic_df,
@@ -301,6 +337,7 @@ def run(relation_version):
         basic_df.enterprise_status.alias('estatus'),
         basic_df.company_province.alias('province')    
     )
+        
     
     #专利
     tid_company_info_df = tid_company_info_df.join(
@@ -677,25 +714,297 @@ def run(relation_version):
         fun.when(
             black_df.company_type == 'black', True
         ).otherwise(False).alias('is_black_company')
+    )    
+    
+    #是否是分支机构
+    tid_company_info_df = tid_company_info_df.join(
+        fzjg_name_df,
+        fzjg_name_df.fzjg_name == tid_company_info_df.company_name,
+        'left_outer'
+    ).select(
+        tid_company_info_df.bbd_qyxx_id,
+        tid_company_info_df.company_name,
+        'isSOcompany', 'isIPOcompany', 'realcap',
+        'regcap', 'regtime', 'opescope',
+        'address', 'estatus', 'province',
+        'zhuanli', 'shangbiao', 'url',
+        'ICP', 'bgxx', 'recruit', 
+        'zhaobiao', 'zhongbiao', 'ktgg', 
+        'zgcpwsw', 'rmfygg', 'lending', 'xzcf',
+        'zhixing', 'dishonesty', 'jyyc',
+        'circxzcf', 'fzjg', 'namefrag',
+        'province_black_num', 'province_leijinrong_num',
+        'is_black_company',
+        fzjg_name_df.is_fzjg
+    )
+
+    #招聘行业数据
+    tid_company_info_df = tid_company_info_df.join(
+        recruit_industry_df,
+        tid_company_info_df.bbd_qyxx_id == recruit_industry_df.bbd_qyxx_id,
+        'left_outer'
+    ).select(
+        tid_company_info_df.bbd_qyxx_id,
+        tid_company_info_df.company_name,
+        'isSOcompany', 'isIPOcompany', 'realcap',
+        'regcap', 'regtime', 'opescope',
+        'address', 'estatus', 'province',
+        'zhuanli', 'shangbiao', 'url',
+        'ICP', 'bgxx', 'recruit', 
+        'zhaobiao', 'zhongbiao', 'ktgg', 
+        'zgcpwsw', 'rmfygg', 'lending', 'xzcf',
+        'zhixing', 'dishonesty', 'jyyc',
+        'circxzcf', 'fzjg', 'namefrag',
+        'province_black_num', 'province_leijinrong_num',
+        'is_black_company', 'is_fzjg',
+        recruit_industry_df.recruit_dict.alias('recruit_industry')
+    )
+
+    #注册资本变更详情
+    tid_company_info_df = tid_company_info_df.join(
+        bgxx_capital_df,
+        bgxx_capital_df.bbd_qyxx_id == tid_company_info_df.bbd_qyxx_id,
+        'left_outer'
+    ).select(
+        tid_company_info_df.bbd_qyxx_id,
+        tid_company_info_df.company_name,
+        'isSOcompany', 'isIPOcompany', 'realcap',
+        'regcap', 'regtime', 'opescope',
+        'address', 'estatus', 'province',
+        'zhuanli', 'shangbiao', 'url',
+        'ICP', 'bgxx', 'recruit', 
+        'zhaobiao', 'zhongbiao', 'ktgg', 
+        'zgcpwsw', 'rmfygg', 'lending', 'xzcf',
+        'zhixing', 'dishonesty', 'jyyc',
+        'circxzcf', 'fzjg', 'namefrag',
+        'province_black_num', 'province_leijinrong_num',
+        'is_black_company', 'is_fzjg', 'recruit_industry',
+        bgxx_capital_df.tid_list.alias('bgxx_capital')
+    )
+
+    #是否是新金融企业
+    tid_company_info_df = tid_company_info_df.join(
+        new_finance_df,
+        new_finance_df.bbd_qyxx_id == tid_company_info_df.bbd_qyxx_id,
+        'left_outer'
+    ).select(
+        tid_company_info_df.bbd_qyxx_id,
+        tid_company_info_df.company_name,
+        'isSOcompany', 'isIPOcompany', 'realcap',
+        'regcap', 'regtime', 'opescope',
+        'address', 'estatus', 'province',
+        'zhuanli', 'shangbiao', 'url',
+        'ICP', 'bgxx', 'recruit', 
+        'zhaobiao', 'zhongbiao', 'ktgg', 
+        'zgcpwsw', 'rmfygg', 'lending', 'xzcf',
+        'zhixing', 'dishonesty', 'jyyc',
+        'circxzcf', 'fzjg', 'namefrag',
+        'province_black_num', 'province_leijinrong_num',
+        'is_black_company', 'is_fzjg', 'recruit_industry',
+        'bgxx_capital',
+        new_finance_df.is_new_finance.alias('is_new_finance')
     )
     
-    #结果输出
-    tid_company_info_df = tid_company_info_df.dropDuplicates(
+    #非法集资案件数
+    tid_company_info_df = tid_company_info_df.join(
+        zgcpwsw_specific_count_df,
+        (zgcpwsw_specific_count_df.bbd_qyxx_id == 
+            tid_company_info_df.bbd_qyxx_id),
+        'left_outer'
+    ).select(
+        tid_company_info_df.bbd_qyxx_id,
+        tid_company_info_df.company_name,
+        'isSOcompany', 'isIPOcompany', 'realcap',
+        'regcap', 'regtime', 'opescope',
+        'address', 'estatus', 'province',
+        'zhuanli', 'shangbiao', 'url',
+        'ICP', 'bgxx', 'recruit', 
+        'zhaobiao', 'zhongbiao', 'ktgg', 
+        'zgcpwsw', 'rmfygg', 'lending', 'xzcf',
+        'zhixing', 'dishonesty', 'jyyc',
+        'circxzcf', 'fzjg', 'namefrag',
+        'province_black_num', 'province_leijinrong_num',
+        'is_black_company', 'is_fzjg', 'recruit_industry',
+        'bgxx_capital', 'is_new_finance',
+        zgcpwsw_specific_count_df.zgcpwsw_specific_num.alias(
+            'zgcpwsw_specific'
+        )
+    ).cache()
+
+    #某公司是否与黑名单库中任意一家企业存在利益一致行动关系（是1否0）
+    #是否与黑名单库中任意一家企业地址相同（是1否0）
+    def get_company_namefrag(iterator):
+        '''
+        构建DAG；这里因为涉及到加载词典，只能用mapPartition，不然IO开销太大
+        '''
+        try:
+            from dafei_keyword import KeywordExtr
+            _obj = KeywordExtr("city", "1gram.words", 
+                               "2gram.words", "new.work.words")
+            keyword_list = []
+            for row in iterator:
+                keyword_list.append(
+                    (row.company_name, _obj.clean(row.company_name)))
+            return keyword_list
+        except Exception, e:
+            return e
+            
+    all_company_namefrag_df = tid_company_info_df.select(
+        'company_name'
+    ).rdd.repartition(
+        100
+    ).mapPartitions(
+        get_company_namefrag
+    ).map(
+        lambda r: Row(company_name=r[0], namefrag=r[1])
+    ).toDF(
+    ).cache()
+        
+    all_company_address_df = all_company_namefrag_df.join(
+        basic_df,
+        basic_df.company_name == all_company_namefrag_df.company_name,
+        'left_outer'
+    ).select(
+        basic_df.bbd_qyxx_id,
+        all_company_namefrag_df.namefrag,
+        basic_df.address.alias('all_company_address')
+    ).dropDuplicates(
         ['bbd_qyxx_id']
     ).cache()
     
+    black_address_df = black_df.join(
+        basic_df,
+        basic_df.company_name == black_df.company_name,
+        'left_outer'
+    ).select(
+        black_df.company_name,
+        basic_df.address.alias('black_address')
+    ).dropDuplicates(
+        ['company_name']
+    ).cache()
     
-    #2.3 根据样本列表构建属性图
-    ##获取关联方    
+    #中间结果落地
+    os.system(
+        "hadoop fs -rmr "
+        "{path}/*".format(path=TMP_PATH))
+    all_company_address_df.repartition(10).write.parquet(
+        "{path}/"
+        "all_company_address_df/{version}".format(version=RELATION_VERSION,
+                                                  path=TMP_PATH))
+    black_address_df.repartition(10).write.parquet(
+        "{path}/"
+        "black_address_df/{version}".format(version=RELATION_VERSION,
+                                            path=TMP_PATH))
+    tid_company_info_df.repartition(10).write.parquet(
+        "{path}/"
+        "tid_company_info_df/{version}".format(version=RELATION_VERSION,
+                                               path=TMP_PATH))
+    tid_df.repartition(10).write.parquet(
+        "{path}/"
+        "tid_df/{version}".format(version=RELATION_VERSION,
+                                  path=TMP_PATH))
+
+def tid_spark_data_flow():
+    is_common_interests_udf = fun.udf(is_common_interests, tp.IntegerType())
+    is_common_address_udf = fun.udf(is_common_address, tp.IntegerType())    
+    
+    all_company_address_df = spark.read.parquet(
+        "{path}/"
+        "all_company_address_df/{version}".format(version=RELATION_VERSION,
+                                                  path=TMP_PATH)
+    ).dropDuplicates(
+        ['bbd_qyxx_id']
+    )
+    black_address_df = spark.read.parquet(
+        "{path}/black_address_df/{version}".format(version=RELATION_VERSION,
+                                                   path=TMP_PATH))
+    
+    #数据落地是为了做笛卡尔积
+    all_company_address_df.join(
+        black_address_df
+    ).select(
+        'bbd_qyxx_id',
+        is_common_interests_udf('namefrag', 
+                                'company_name').alias('is_common_interests'),
+        is_common_address_udf('all_company_address', 
+                              'black_address').alias('is_common_address')
+    ).cache(
+    ).where(
+        'is_common_interests = 1 or  is_common_address = 1'
+    ).dropDuplicates(
+        ['bbd_qyxx_id']
+    ).repartition(
+        10
+    ).write.parquet(
+        "{path}/"
+        "some_black_info_df/{version}".format(version=RELATION_VERSION,
+                                              path=TMP_PATH)
+    )
+    
+def prd_spark_data_flow():
+    some_black_info_df = spark.read.parquet(
+        "{path}/"
+        "some_black_info_df/{version}".format(version=RELATION_VERSION,
+                                              path=TMP_PATH))
+    tid_company_info_df = spark.read.parquet(
+        "{path}/"
+        "tid_company_info_df/{version}".format(version=RELATION_VERSION,
+                                               path=TMP_PATH))
+    tid_df = spark.read.parquet(
+        "{path}/"
+        "tid_df/{version}".format(version=RELATION_VERSION,
+                                  path=TMP_PATH))
+    
+    sample_df = spark.read.parquet(
+        get_read_path(file_name='ljr_sample', 
+                      version=LEIJINRONG_VERSION))
+
+    tid_company_info_df = tid_company_info_df.join(
+        some_black_info_df,
+        some_black_info_df.bbd_qyxx_id == tid_company_info_df.bbd_qyxx_id,
+        'left_outer'
+    ).select(
+        tid_company_info_df.bbd_qyxx_id,
+        tid_company_info_df.company_name,
+        'isSOcompany', 'isIPOcompany', 'realcap',
+        'regcap', 'regtime', 'opescope',
+        'address', 'estatus', 'province',
+        'zhuanli', 'shangbiao', 'url',
+        'ICP', 'bgxx', 'recruit', 
+        'zhaobiao', 'zhongbiao', 'ktgg', 
+        'zgcpwsw', 'rmfygg', 'lending', 'xzcf',
+        'zhixing', 'dishonesty', 'jyyc',
+        'circxzcf', 'fzjg', 'namefrag',
+        'province_black_num', 'province_leijinrong_num',
+        'is_black_company', 'is_fzjg', 'recruit_industry',
+        'bgxx_capital', 'is_new_finance',
+        'zgcpwsw_specific', 'is_common_interests', 
+        'is_common_address'
+    ).dropDuplicates(
+        ['bbd_qyxx_id']
+    )
+
+    #2.3：根据样本列表构建属性图
+    ##获取关联方
+    ##这里有个特殊逻辑，需要过滤非通用部分的企业
+    def filter_company_type(company_type, type_list=TYPE_LIST):
+        '''保留在TYPE_LIST中的企业'''
+        if company_type in type_list:
+            return True
+        else:
+            return False
+    filter_company_type_udf = fun.udf(
+        filter_company_type, BooleanType()
+    )
+    
     tid_company_merge_df = sample_df.where(
-        filter_company_type_udf(sample_df.company_type)    
+        filter_company_type_udf(sample_df.company_type)
     ).join(
         tid_df,
         fun.trim(tid_df.a_name) == fun.trim(sample_df.company_name),
         'left_outer'
     ).select(
-        sample_df.bbd_qyxx_id.alias('a'), 
-        'b', 'c',
+        'a', 'b', 'c',
         'b_degree', 'c_degree', 'bc_relation',
         'b_isperson', 'c_isperson',
         sample_df.company_name.alias('a_name'),
@@ -704,10 +1013,10 @@ def run(relation_version):
     ##目标公司信息
     tid_company_merge_df = tid_company_merge_df.join(
         tid_company_info_df,
-        tid_company_info_df.bbd_qyxx_id == tid_company_merge_df.a,
+        tid_company_info_df.company_name == tid_company_merge_df.a_name,
         'left_outer'
     ).select(
-        tid_company_merge_df.a, 
+        tid_company_info_df.bbd_qyxx_id.alias('a'), 
         'b', 'c',
         'b_degree', 'c_degree', 'bc_relation',
         'b_isperson', 'c_isperson', 'a_name',
@@ -726,7 +1035,11 @@ def run(relation_version):
         tid_company_info_df.fzjg.alias('a_fzjg'), 
         tid_company_info_df.namefrag.alias('a_namefrag'), 
         tid_company_info_df.province_black_num.alias('a_province_black_num'), 
-        tid_company_info_df.province_leijinrong_num.alias('a_province_leijinrong_num')
+        tid_company_info_df.province_leijinrong_num.alias('a_province_leijinrong_num'),
+        tid_company_info_df.recruit_industry.alias('a_recruit_industry'),
+        tid_company_info_df.bgxx_capital.alias('a_bgxx_capital'),
+        tid_company_info_df.is_common_interests.alias('a_is_common_interests'),
+        tid_company_info_df.is_common_address.alias('a_is_common_address')
     )
     #投资方信息
     tid_company_merge_df = tid_company_merge_df.join(
@@ -743,7 +1056,10 @@ def run(relation_version):
         'a_bgxx', 'a_recruit', 'a_zhaobiao',
         'a_zhongbiao', 'a_fzjg', 'a_namefrag',
         'a_province_black_num', 'a_province_leijinrong_num',
+        'a_recruit_industry', 'a_bgxx_capital', 
+        'a_is_common_interests', 'a_is_common_address',
         tid_company_info_df.isSOcompany.alias('b_isSOcompany'),
+        tid_company_info_df.isSOcompany.alias('b_isIPOcompany'),
         tid_company_info_df.is_black_company.alias('b_is_black_company'),
         tid_company_info_df.regtime.alias('b_regtime'),
         tid_company_info_df.ktgg.alias('b_ktgg'),
@@ -758,7 +1074,12 @@ def run(relation_version):
         tid_company_info_df.circxzcf.alias('b_circxzcf'),
         tid_company_info_df.opescope.alias('b_opescope'),
         tid_company_info_df.address.alias('b_address'),
-        tid_company_info_df.province.alias('b_province')
+        tid_company_info_df.province.alias('b_province'),
+        tid_company_info_df.is_fzjg.alias('b_is_fzjg'),
+        tid_company_info_df.is_new_finance.alias('b_is_new_finance'), 
+        tid_company_info_df.zgcpwsw_specific.alias('b_zgcpwsw_specific'),
+        tid_company_info_df.is_common_interests.alias('b_is_common_interests'),
+        tid_company_info_df.is_common_address.alias('b_is_common_address')
     )
     #被投资方信息
     tid_company_merge_df = tid_company_merge_df.join(
@@ -775,12 +1096,17 @@ def run(relation_version):
         'a_bgxx', 'a_recruit', 'a_zhaobiao',
         'a_zhongbiao', 'a_fzjg', 'a_namefrag',    
         'a_province_black_num', 'a_province_leijinrong_num',
-        'b_isSOcompany' , 'b_is_black_company', 'b_regtime',
+        'a_recruit_industry', 'a_bgxx_capital',
+        'a_is_common_interests', 'a_is_common_address',
+        'b_isSOcompany' , 'b_isIPOcompany', 'b_is_black_company', 'b_regtime',
         'b_ktgg', 'b_zgcpwsw', 'b_rmfygg', 'b_lending',   
         'b_xzcf' , 'b_zhixing', 'b_dishonesty',   
         'b_jyyc' , 'b_estatus', 'b_circxzcf',   
-        'b_opescope', 'b_address', 'b_province',
+        'b_opescope', 'b_address', 'b_province', 'b_is_fzjg',
+        'b_is_new_finance', 'b_zgcpwsw_specific',
+        'b_is_common_interests', 'b_is_common_address',
         tid_company_info_df.isSOcompany.alias('c_isSOcompany'),
+        tid_company_info_df.isSOcompany.alias('c_isIPOcompany'),
         tid_company_info_df.is_black_company.alias('c_is_black_company'),
         tid_company_info_df.regtime.alias('c_regtime'),
         tid_company_info_df.ktgg.alias('c_ktgg'),
@@ -795,33 +1121,47 @@ def run(relation_version):
         tid_company_info_df.circxzcf.alias('c_circxzcf'),
         tid_company_info_df.opescope.alias('c_opescope'),
         tid_company_info_df.address.alias('c_address'),
-        tid_company_info_df.province.alias('c_province')
+        tid_company_info_df.province.alias('c_province'),
+        tid_company_info_df.is_fzjg.alias('c_is_fzjg'),
+        tid_company_info_df.is_new_finance.alias('c_is_new_finance'),
+        tid_company_info_df.zgcpwsw_specific.alias('c_zgcpwsw_specific'),
+        tid_company_info_df.is_common_interests.alias('c_is_common_interests'),
+        tid_company_info_df.is_common_address.alias('c_is_common_address')
     )
-    
+
     os.system(
         "hadoop fs -rmr "
         "{path}/"
-        "common_company_info_merge/{version}".format(version=relation_version,
-                                                     path=OUT_PATH))
-                                                                             
-    tid_company_merge_df.repartition(10) \
-        .write \
-        .parquet(
-            "{path}/"
-            "common_company_info_merge/{version}".format(version=relation_version,
-                                                         path=OUT_PATH))
+        "common_company_info_merge_v2/"
+        "{version}".format(version=RELATION_VERSION,
+                           path=OUT_PATH))
+    
+    tid_company_merge_df.repartition(10).write.parquet(
+        "{path}/"
+        "common_company_info_merge_v2/"
+        "{version}".format(version=RELATION_VERSION,
+                           path=OUT_PATH))
+    
+    print "SUCESS ！！"    
+
+
+def run():
+    raw_spark_data_flow()
+    tid_spark_data_flow()
+    prd_spark_data_flow()
 
 def get_spark_session():
     conf = SparkConf()
     conf.setMaster('yarn-client')
     conf.set("spark.yarn.am.cores", 15)
-    conf.set("spark.executor.memory", "70g")
+    conf.set("spark.executor.memory", "60g")
     conf.set("spark.executor.instances", 20)
     conf.set("spark.executor.cores", 10)
     conf.set("spark.python.worker.memory", "3g")
     conf.set("spark.default.parallelism", 1500)
     conf.set("spark.sql.shuffle.partitions", 1500)
     conf.set("spark.broadcast.blockSize", 1024)
+    conf.set("spark.sql.crossJoin.enabled", True)
     conf.set("spark.executor.extraJavaOptions",
              "-XX:+PrintGCDetails -XX:+PrintGCTimeStamps")    
     conf.set("spark.submit.pyFiles", 
@@ -834,7 +1174,7 @@ def get_spark_session():
     
     spark = SparkSession \
         .builder \
-        .appName("hgongjing2_one_tid_common") \
+        .appName("hgongjing2_one_tid_common_v2") \
         .config(conf = conf) \
         .enableHiveSupport() \
         .getOrCreate()    
@@ -873,6 +1213,7 @@ if __name__ == "__main__":
     #输入输出路径
     IN_PATH = conf.get('common_company_info_merge', 'IN_PATH')
     OUT_PATH = conf.get('common_company_info_merge', 'OUT_PATH')
+    TMP_PATH = conf.get('common_company_info_merge', 'TMP_PATH')
 
     #除了TYPE_LIST中的企业外，其余企业还是用xgboost，因此这里需要将他们筛选出来
     TYPE_LIST = conf.get('input_sample_data', 'TYPE_LIST')
@@ -880,4 +1221,10 @@ if __name__ == "__main__":
     #sparkSession
     spark = get_spark_session()
     
-    run(RELATION_VERSION)
+    run()
+    
+    
+    
+    
+    
+    

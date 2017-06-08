@@ -43,12 +43,14 @@ def spark_data_flow(static_version, dynamic_version):
     '''
     static_df = spark.read.json(        
         "{path}/"
-        "common_static_feature_distribution/{version}".format(path=IN_PAHT, 
-                                                              version=static_version))
+        "common_static_feature_distribution_v2/"
+        "{version}".format(path=IN_PAHT, 
+                           version=static_version))
     dynamic_df = spark.read.json(
         "{path}/"
-        "common_dynamic_feature_distribution/{version}".format(path=IN_PAHT, 
-                                                               version=dynamic_version))
+        "common_dynamic_feature_distribution_v2/"
+        "{version}".format(path=IN_PAHT, 
+                           version=dynamic_version))
 
     sample_df = spark.read.parquet(
          ("/user/antifraud/hongjing2/dataflow/step_one/raw"
@@ -76,7 +78,7 @@ def spark_data_flow(static_version, dynamic_version):
          'feature_20','feature_21', 'feature_22', 'feature_23',
          'feature_24','feature_3','feature_4','feature_5',
          'feature_6','feature_7','feature_8','feature_9',
-         'feature_25', 'feature_26', 'feature_27', 'feature_28']
+         'feature_25', 'feature_26']
     )
 
     return feature_df
@@ -88,11 +90,11 @@ def run():
         ("hadoop fs -rmr " 
          "{path}/"
          "nf_feature_merge/{version}").format(path=OUT_PATH, 
-                                                  version=RELATION_VERSION))    
+                                              version=RELATION_VERSION))    
     raw_df.repartition(10).write.parquet(         
         ("{path}/"
          "nf_feature_merge/{version}").format(path=OUT_PATH, 
-                                                  version=RELATION_VERSION))
+                                              version=RELATION_VERSION))
     
 if __name__ == '__main__':
     conf = configparser.ConfigParser()    
