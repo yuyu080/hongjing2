@@ -68,21 +68,36 @@ def get_first_grade_indexes(row):
 
 def change_prob_score(row, quantile_one, quantile_two):
     '''根据分位点，将判黑概率值转化成分'''
-    raw_prob = sigmoid(row[2])
-    quantile_one = sigmoid(quantile_one)
-    quantile_two = sigmoid(quantile_two)
-    
+    raw_prob = row[2]
+    raw_prob_changed = sigmoid(row[2])
+    quantile_one_changed = sigmoid(quantile_one)
+    quantile_two_changed = sigmoid(quantile_two)
+
+    #第一次变换
     if raw_prob >= quantile_one:
-        score = (raw_prob - quantile_one) * 40. / (0.75 - quantile_one) + 50
+        score = (
+            (raw_prob_changed - quantile_one_changed) * 40. / 
+            (0.75 - quantile_one_changed) + 
+            50        
+        )
     elif quantile_two <= raw_prob <= quantile_one:
-        score = ((raw_prob - quantile_two) * 50. / 
-                 (quantile_one - quantile_two) + 
-                 (quantile_one - raw_prob) * 30. / 
-                 (quantile_one - quantile_two))
+        score = ((raw_prob_changed - quantile_two_changed) * 50. / 
+                 (quantile_one_changed - quantile_two_changed) + 
+                 (quantile_one_changed - raw_prob_changed) * 30. / 
+                 (quantile_one_changed - quantile_two_changed))
     elif raw_prob < quantile_two:
-        score = (raw_prob - quantile_two) * 30. / quantile_two + 30
+        score = sigmoid(raw_prob*50000) * 30. / sigmoid(quantile_two*50000) 
     
-    return (row[0], row[1], row[2], round(score, 1), row[3])
+    #第二次变换，真是SB
+    #result = score
+    if 50 < score <= 51:
+        result = (sigmoid(score / 100.) * 100 -62) * 15 / 10. + 50
+    elif 51 < score <= 90:
+        result = (sigmoid(score / 100.) * 100 -62) * 25 / 10. + 65
+    else:
+        result = score
+    
+    return (row[0], row[1], row[2], round(result, 1), row[3])
     
 def get_label_probability(iter_data):
     '''计算判黑概率'''
