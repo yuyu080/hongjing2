@@ -82,6 +82,10 @@ def step_one(step_child_name, old_version, new_version):
                                    'common_company_info_merge.py', new_version)
         is_success(result, 'step_one', step_child_name, 
                    'common_company_info_merge.py', new_version)
+        result = execute_some_step('step_one', step_child_name, 
+                                   'common_company_info_merge_v2.py', new_version)
+        is_success(result, 'step_one', step_child_name, 
+                   'common_company_info_merge_v2.py', new_version)
 
     if step_child_name == 'prd':
         result_one = execute_some_step('step_one', step_child_name, 
@@ -90,11 +94,24 @@ def step_one(step_child_name, old_version, new_version):
         is_success(result_one, 'step_one', step_child_name, 
                    'common_company_static_feature.py', new_version)
 
+        result_one = execute_some_step('step_one', step_child_name, 
+                                       'common_company_static_feature_v2.py', 
+                                       new_version)
+        is_success(result_one, 'step_one', step_child_name, 
+                   'common_company_static_feature_v2.py', new_version)
+
         result_two = execute_some_step('step_one', step_child_name, 
                                        'common_company_dynamic_feature.py', 
                                        old_version + ' ' +new_version)
         is_success(result_two, 'step_one', step_child_name, 
                    'common_company_dynamic_feature.py', 
+                   old_version + ' ' + new_version)
+        
+        result_two = execute_some_step('step_one', step_child_name, 
+                                       'common_company_dynamic_feature_v2.py', 
+                                       old_version + ' ' +new_version)
+        is_success(result_two, 'step_one', step_child_name, 
+                   'common_company_dynamic_feature_v2.py', 
                    old_version + ' ' + new_version)
         
         result_three = execute_some_step('step_one', step_child_name, 
@@ -124,6 +141,13 @@ def step_two(version):
                                    version)
     is_success(result_one, 'step_two', 'raw', 
                'nf_feature_merge.py', 
+               version)
+    
+    result_one_one = execute_some_step('step_two', 'tid', 
+                                       'nf_feature_preprocessing.py',
+                                       version)
+    is_success(result_one_one, 'step_two', 'tid', 
+               'nf_feature_preprocessing.py', 
                version)
     
     result_two = execute_some_step('step_two', 'prd', 

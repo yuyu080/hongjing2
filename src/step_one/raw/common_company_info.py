@@ -816,7 +816,7 @@ def run():
         dt='{version}'
         '''.format(version=BLACK_VERSION)
     ).dropDuplicates(
-        ['company_name']    
+        ['company_name']
     )
     os.system(
         ("hadoop fs -rmr "
@@ -824,7 +824,7 @@ def run():
                                                   path=OUT_PATH))
     black_df.repartition(10).write.parquet(
         "{path}/black_company/{version}".format(version=RELATION_VERSION, 
-                                                path=OUT_PATH))   
+                                                path=OUT_PATH))
     
     #黑企业省份分布
     black_province_df  = black_df.join(

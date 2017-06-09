@@ -66,15 +66,13 @@ def spark_data_flow():
         "/user/antifraud/source/company_county_mapping", 
         sep='\t', 
         header=True)
-    black_df = spark.sql(
-        '''
-        SELECT 
-        company_name 
-        FROM 
-        dw.qyxg_leijinrong_blacklist
-        '''
-    ).distinct(
-    ).withColumn('is_black', get_black_udf('company_name'))
+    black_df = spark.read.parquet(
+        ("/user/antifraud/hongjing2/dataflow/step_one/raw"
+         "/black_company"
+         "/{version}").format(version=RELATION_VERSION)
+    ).withColumn(
+        'is_black', get_black_udf('company_name')
+    )
     
     tid_pe_risk_score_df = raw_pe_risk_score_df.rdd.map(
         lambda r: r.asDict()
