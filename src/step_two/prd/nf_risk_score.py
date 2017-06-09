@@ -80,7 +80,7 @@ def change_prob_score(row, quantile_one, quantile_two):
             (0.75 - quantile_one_changed) + 
             50        
         )
-    elif quantile_two <= raw_prob <= quantile_one:
+    elif quantile_two <= raw_prob < quantile_one:
         score = ((raw_prob_changed - quantile_two_changed) * 50. / 
                  (quantile_one_changed - quantile_two_changed) + 
                  (quantile_one_changed - raw_prob_changed) * 30. / 
