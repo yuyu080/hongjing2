@@ -109,7 +109,7 @@ def get_tags(row):
                 row['feature_16']['x_1'] + row['feature_16']['x_2'] + 0.01)) >= 0.9:
             tags.append(u'二度内关联方中自然人比例较高')
         if row['feature_21']['n'] >= 2:
-            tags.append(u'关联企业中地址相同公司较多')
+            tags.append(u'二度内关联企业中地址相同公司较多')
         if (row['feature_23']['b_1'] + row['feature_23']['b_2']) :
             tags.append(u'二度内关联方中存在黑名单企业')
         return {
