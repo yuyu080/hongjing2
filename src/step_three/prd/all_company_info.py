@@ -161,11 +161,11 @@ def raw_spark_data_flow():
     HIGH_RISK_POINT = risk_list[high_risk_point_index]
     
     def get_risk_rank(risk_index):
-        if risk_index <= MIDDLE_RISK_POINT:
+        if risk_index < MIDDLE_RISK_POINT:
             return u'持续监控'
-        elif MIDDLE_RISK_POINT < risk_index <= HIGH_RISK_POINT:
+        elif MIDDLE_RISK_POINT <= risk_index < HIGH_RISK_POINT:
             return u'重点关注'
-        elif HIGH_RISK_POINT < risk_index:
+        elif HIGH_RISK_POINT <= risk_index:
             return u'高危预警'
     get_risk_rank_udf = fun.udf(get_risk_rank, tp.StringType())    
 
@@ -183,10 +183,15 @@ def spark_data_flow():
     
     #获取目标公司的相关信息
     #这里计算流程较长，为了就是获取风险关联企业：
-    relation_df = spark.read.parquet(
+    relation_df_one = spark.read.parquet(
         ("/user/antifraud/hongjing2/dataflow/step_one/tid"
          "/common_company_info_merge"
          "/{version}").format(version=RELATION_VERSION))
+    relation_df_two = spark.read.parquet(
+        ("/user/antifraud/hongjing2/dataflow/step_one/tid"
+         "/common_company_info_merge_v2"
+         "/{version}").format(version=RELATION_VERSION))    
+    
     
     high_risk_df = tid_nf_df.select(
         'bbd_qyxx_id',
@@ -198,10 +203,19 @@ def spark_data_flow():
         ['bbd_qyxx_id']
     )
     
-    tmp_df = relation_df.dropDuplicates(
+    tmp_df = relation_df_one.select(
+        'a', 'b', 'c', 'b_isperson', 
+        'c_isperson', 'a_name', 'b_name', 'c_name'
+    ).union(
+        relation_df_two.select(
+            'a', 'b', 'c', 'b_isperson', 
+            'c_isperson', 'a_name', 'b_name', 'c_name'
+        )
+    ).dropDuplicates(
        [ 'a', 'b', 'c']
     ).select(
-        'a', 'b', 'c', 'b_isperson', 'c_isperson', 'a_name', 'b_name', 'c_name'
+        'a', 'b', 'c', 'b_isperson', 
+        'c_isperson', 'a_name', 'b_name', 'c_name'
     ).cache()
     
     tmp_2_df = tmp_df.select(
@@ -242,10 +256,64 @@ def spark_data_flow():
         'sum(is_high)', 'relation_high_num'
     ).cache()
     
-    common_static_feature_df = spark.read.json(
+    common_static_feature_df_one = spark.read.json(
         ("/user/antifraud/hongjing2/dataflow/step_one/prd"
          "/common_static_feature_distribution"
-         "/{version}").format(version=RELATION_VERSION))    
+         "/{version}").format(version=RELATION_VERSION))
+    common_static_feature_df_two = spark.read.json(
+        ("/user/antifraud/hongjing2/dataflow/step_one/prd"
+         "/common_static_feature_distribution_v2"
+         "/{version}").format(version=RELATION_VERSION)) 
+    common_static_feature_df = common_static_feature_df_one.select(
+        common_static_feature_df_one.bbd_qyxx_id,
+        common_static_feature_df_one.company_name,
+        (common_static_feature_df_one.feature_6.getItem('c_1') + 
+        common_static_feature_df_one.feature_6.getItem('c_2') +
+        common_static_feature_df_one.feature_6.getItem('c_3') +
+        common_static_feature_df_one.feature_6.getItem('c_4') +
+        common_static_feature_df_one.feature_6.getItem('c_5')
+        ).alias('gsbg'),
+        (common_static_feature_df_one.feature_10.getItem('0').getItem('ktgg') +
+        common_static_feature_df_one.feature_10.getItem('0').getItem('rmfygg') +
+        common_static_feature_df_one.feature_10.getItem('0').getItem('zgcpwsw')
+        ).alias('ssxx'),
+        (common_static_feature_df_one.feature_11.getItem('0').getItem('xzcf') +
+        common_static_feature_df_one.feature_14.getItem('0').getItem('circxzcf')
+        ).alias('xzcf'),
+        (common_static_feature_df_one.feature_12.getItem('0').getItem('dishonesty') +
+        common_static_feature_df_one.feature_12.getItem('0').getItem('zhixing')
+        ).alias('sxxx'),
+        (common_static_feature_df_one.feature_13.getItem('0').getItem('jyyc')
+        ).alias('jyyc'),
+        (common_static_feature_df_one.feature_18.getItem('d')
+        ).alias('fzjg')
+    ).union(
+        common_static_feature_df_two.select(
+            common_static_feature_df_two.bbd_qyxx_id,
+            common_static_feature_df_two.company_name,
+            (common_static_feature_df_two.feature_6.getItem('c_1') + 
+            common_static_feature_df_two.feature_6.getItem('c_2') +
+            common_static_feature_df_two.feature_6.getItem('c_3') +
+            common_static_feature_df_two.feature_6.getItem('c_4') +
+            common_static_feature_df_two.feature_6.getItem('c_5')
+            ).alias('gsbg'),
+            (common_static_feature_df_two.feature_10.getItem('0').getItem('ktgg') +
+            common_static_feature_df_two.feature_10.getItem('0').getItem('rmfygg') +
+            common_static_feature_df_two.feature_10.getItem('0').getItem('zgcpwsw')
+            ).alias('ssxx'),
+            (common_static_feature_df_two.feature_11.getItem('0').getItem('xzcf') +
+            common_static_feature_df_two.feature_14.getItem('0').getItem('circxzcf')
+            ).alias('xzcf'),
+            (common_static_feature_df_two.feature_12.getItem('0').getItem('dishonesty') +
+            common_static_feature_df_two.feature_12.getItem('0').getItem('zhixing')
+            ).alias('sxxx'),
+            (common_static_feature_df_two.feature_13.getItem('0').getItem('jyyc')
+            ).alias('jyyc'),
+            (common_static_feature_df_two.feature_18.getItem('d')
+            ).alias('fzjg')
+        )
+    )
+    
     raw_xgxx_info = common_static_feature_df.join(
         tmp_3_df,
         common_static_feature_df.bbd_qyxx_id == tmp_3_df.a,
@@ -253,26 +321,12 @@ def spark_data_flow():
     ).select(
         common_static_feature_df.bbd_qyxx_id,
         common_static_feature_df.company_name,
-        (common_static_feature_df.feature_6.getItem('c_1') + 
-        common_static_feature_df.feature_6.getItem('c_2') +
-        common_static_feature_df.feature_6.getItem('c_3') +
-        common_static_feature_df.feature_6.getItem('c_4') +
-        common_static_feature_df.feature_6.getItem('c_5')
-        ).alias('gsbg'),
-        (common_static_feature_df.feature_10.getItem('0').getItem('ktgg') +
-        common_static_feature_df.feature_10.getItem('0').getItem('rmfygg') +
-        common_static_feature_df.feature_10.getItem('0').getItem('zgcpwsw')
-        ).alias('ssxx'),
-        (common_static_feature_df.feature_11.getItem('0').getItem('xzcf') +
-        common_static_feature_df.feature_14.getItem('0').getItem('circxzcf')
-        ).alias('xzcf'),
-        (common_static_feature_df.feature_12.getItem('0').getItem('dishonesty') +
-        common_static_feature_df.feature_12.getItem('0').getItem('zhixing')
-        ).alias('sxxx'),
-        (common_static_feature_df.feature_13.getItem('0').getItem('jyyc')
-        ).alias('jyyc'),
-        (common_static_feature_df.feature_18.getItem('d')
-        ).alias('fzjg'),
+        'gsbg',
+        'ssxx',
+        'xzcf',
+        'sxxx',
+        'jyyc',
+        'fzjg',
         tmp_3_df.relation_high_num.alias('fxglf')
     ).rdd.map(
         get_json_obj
@@ -280,13 +334,25 @@ def spark_data_flow():
     )
         
     #输出
+    #已basic的名字为准
+    basic_df = spark.read.parquet(
+         ("/user/antifraud/hongjing2/dataflow/step_one/raw/"
+          "/basic/{version}").format(version=RELATION_VERSION))
     get_data_version_udf = fun.udf(get_data_version, tp.StringType())
     prd_nf_df = tid_nf_df.join(
         raw_xgxx_info,
         raw_xgxx_info.company_name == tid_nf_df.company_name,
         'left_outer'
+    ).join(
+        basic_df,
+        basic_df.bbd_qyxx_id == tid_nf_df.bbd_qyxx_id,
+        'left_outer'
     ).select(
-        tid_nf_df.company_name,
+        fun.when(
+            basic_df.company_name.isNotNull(), basic_df.company_name
+        ).otherwise(
+            tid_nf_df.company_name
+        ),
         tid_nf_df.bbd_qyxx_id,
         tid_nf_df.risk_tags,
         tid_nf_df.risk_index,
