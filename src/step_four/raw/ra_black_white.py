@@ -14,82 +14,94 @@ import sys
 import configparser
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
-from pyspark.sql import Window
-from pyspark.sql.functions import rank
 from pyspark.sql import functions as fun
 from pyspark.sql import types as tp
 
 def is_black(platform_state):
     '''判断是否是黑企业'''
-    if (platform_state == u'正常' or 
-        platform_state == 'NULL'):
-        return 0
-    else:
+    if (platform_state == u'经侦介入' or 
+        platform_state == u'提现困难' or
+        platform_state == u'跑路'):
         return 1
+    else:
+        return 0
+
+def get_join_souce(col):
+    return u'网络爬取'
+
+def get_join_date(col):
+    return ''
 
 def spark_data_flow():
     is_black_udf = fun.udf(is_black, tp.IntegerType())
-
+    get_join_souce_udf = fun.udf(get_join_souce, tp.StringType())
+    get_join_date_udf = fun.udf(get_join_date, tp.StringType())
+    
     raw_wdzj_df = spark.sql(
         '''
         SELECT
         bbd_qyxx_id,
         company_name,
         platform_name,
-        platform_state,
-        2 priority
+        platform_state
         FROM
         dw.qyxg_wdzj
         WHERE
         dt='{version}'
         '''.format(version=WDZJ_VERSION)
     )
-    platform_df = spark.sql(
-        '''
-        SELECT
-        bbd_qyxx_id
-        ,company_name
-        ,platform_name
-        ,platform_state
-        ,1 priority
-        FROM
-        dw.qyxg_platform_data
-        WHERE
-        dt = '{version}'
-        '''.format(
-            version=PLATFORM_VERSION
-        )
+    raw_basic_df = spark.read.parquet(
+        ("/user/antifraud/hongjing2/dataflow/step_one/raw"
+         "/basic/{version}").format(version=RELATION_VERSION))
+    county_mapping_df = spark.read.csv(
+        "/user/antifraud/source/company_county_mapping", 
+        sep='\t', 
+        header=True)
+    
+    tid_df = raw_wdzj_df.join(
+        raw_basic_df,
+        raw_basic_df.bbd_qyxx_id == raw_wdzj_df.bbd_qyxx_id,
+        'left_outer'
+    ).join(
+        county_mapping_df,
+        county_mapping_df.code == raw_basic_df.company_county,
+        'left_outer'
+    ).select(
+        raw_wdzj_df.bbd_qyxx_id,
+        fun.when(
+            raw_basic_df.company_name.isNotNull(), raw_basic_df.company_name
+        ).otherwise(
+            raw_wdzj_df.company_name
+        ),
+        raw_wdzj_df.platform_name,
+        raw_wdzj_df.platform_state,
+        county_mapping_df.province,
+        county_mapping_df.city,
+        county_mapping_df.county
     )
     
-    tid_df = raw_wdzj_df.union(
-        platform_df
-    ).withColumn(
+    tid_df = tid_df.withColumn(
         'is_black', is_black_udf('platform_state')
-    )
-    
-    window = Window.partitionBy(
-        "bbd_qyxx_id"
-    ).orderBy(
-        tid_df.priority.desc()
+    ).withColumn(
+        'join_souce', get_join_souce_udf('platform_state')
+    ).withColumn(
+        'join_date', get_join_date_udf('platform_state')
     )
     
     prd_df = tid_df.select(
-        'bbd_qyxx_id',
-        'company_name',
-        'platform_name',
-        'platform_state',
-        'is_black',
-        'priority',
-        rank().over(window).alias('rank')
-    ).where(
-        'rank == 1'
-    ).select(
         tid_df.bbd_qyxx_id.alias('id'),
         tid_df.company_name.alias('company'),
         tid_df.platform_state.alias('reason'),
-        tid_df.is_black.alias('is_black'), 
+        tid_df.is_black, 
+        tid_df.join_souce,
+        tid_df.join_date,
+        tid_df.province,
+        tid_df.city,
+        tid_df.county.alias('area'),
         fun.current_timestamp().alias('gmt_create'),
         fun.current_timestamp().alias('gmt_update')
+    ).fillna(
+        {'city': u'无', 'area': u'无', 'province': u'无'}
     ).dropDuplicates(
         ['id']
     )
@@ -117,6 +129,11 @@ def run():
             r.company,
             r.reason,
             str(r.is_black),
+            r.join_souce,
+            r.join_date,
+            r.province,
+            r.city,
+            r.area,
             r.gmt_create.strftime('%Y-%m-%d %H:%M:%S'),
             r.gmt_update.strftime('%Y-%m-%d %H:%M:%S')
         ])
