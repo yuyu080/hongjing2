@@ -1305,7 +1305,6 @@ def spark_data_flow(tidversion):
     #最终计算流程
     tid_rdd_2 = tid_rdd.map(lambda row: (row.a_name, row)) \
         .groupByKey() \
-        .repartition(600) \
         .filter(lambda r: len(r[1].data) <= 100000) \
         .cache()
 
