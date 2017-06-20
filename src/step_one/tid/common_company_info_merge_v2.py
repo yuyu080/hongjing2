@@ -1182,7 +1182,7 @@ def get_spark_session():
     return spark
 
 if __name__ == "__main__":
-    conf = configparser.ConfigParser()    
+    conf = configparser.ConfigParser()  
     conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
  
     #中间结果版本与关联方版本相同
@@ -1211,7 +1211,7 @@ if __name__ == "__main__":
     LEIJINRONG_VERSION = RELATION_VERSION
     
     #输入输出路径
-    IN_PATH = conf.get('common_company_info_merge', 'IN_PATH')
+    IN_PATH = conf.get('common_company_info', 'OUT_PATH')
     OUT_PATH = conf.get('common_company_info_merge', 'OUT_PATH')
     TMP_PATH = conf.get('common_company_info_merge', 'TMP_PATH')
 

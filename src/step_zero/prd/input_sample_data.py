@@ -35,12 +35,13 @@ def raw_spark_data_flow():
         company_name,
         tag company_type
         FROM 
-        dw.qyxx_tags 
+        {table}      
         WHERE
         dt='{version}'
         AND
         bbd_status = 1
-        '''.format(version=TAGS_VERSION)
+        '''.format(table=TABLE_NAME,
+                   version=TAGS_VERSION)
     )
     tid_tags_df = raw_tags_df.where(
         raw_tags_df.company_type.isin(TYPE_LIST)
@@ -226,7 +227,7 @@ def run():
          "{path}/"
          "ljr_sample/{version}").format(path=OUT_PATH, 
                                         version=RELATION_VERSION))    
-    raw_df.repartition(10).write.parquet(         
+    raw_df.repartition(10).write.parquet(
         ("{path}/"
          "ljr_sample/{version}").format(path=OUT_PATH, 
                                         version=RELATION_VERSION))
@@ -240,7 +241,8 @@ if __name__ == '__main__':
     WEIGHT_DICT = eval(conf.get('input_sample_data', 'WEIGHT_DICT'))
     
     #适用于通用模型的部分
-    #dw.qyxx_tags 
+    #qyxx_tags 
+    TABLE_NAME = conf.get('input_sample_data', 'TABLE_NAME')
     TAGS_VERSION = conf.get('input_sample_data', 'TAGS_VERSION')
     TYPE_LIST = eval(conf.get('input_sample_data', 'TYPE_LIST'))
     

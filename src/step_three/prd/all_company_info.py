@@ -46,24 +46,29 @@ def raw_spark_data_flow():
     
     #所有种类企业的合集
     sample_df = spark.read.parquet(
-         ("/user/antifraud/hongjing2/dataflow/step_one/raw"
-          "/ljr_sample/{version}").format(version=RELATION_VERSION))
+         ("{path}"
+          "/ljr_sample/{version}").format(path=IN_PATH_ONE,
+                                          version=RELATION_VERSION))
     
     raw_nf_df = spark.read.parquet(
-        ("/user/antifraud/hongjing2/dataflow/step_three/tid"
-         "/nf_feature_tags/{version}").format(version=RELATION_VERSION))
+        ("{path}"
+         "/nf_feature_tags/{version}").format(path=IN_PATH_TWO,
+                                              version=RELATION_VERSION))
     
     raw_p2p_df = spark.read.parquet(
-        ("/user/antifraud/hongjing2/dataflow/step_three/tid"
-         "/p2p_feature_tags/{version}").format(version=RELATION_VERSION)) 
+        ("{path}"
+         "/p2p_feature_tags/{version}").format(path=IN_PATH_TWO,
+                                               version=RELATION_VERSION)) 
     
     raw_pe_df = spark.read.parquet(
-        ("/user/antifraud/hongjing2/dataflow/step_three/tid"
-         "/pe_feature_tags/{version}").format(version=RELATION_VERSION))
+        ("{path}"
+         "/pe_feature_tags/{version}").format(path=IN_PATH_TWO,
+                                              version=RELATION_VERSION))
     
     raw_ex_df = spark.read.parquet(
-        ("/user/antifraud/hongjing2/dataflow/step_three/tid"
-         "/ex_feature_tags/{version}").format(version=RELATION_VERSION))
+        ("{path}"
+         "/ex_feature_tags/{version}").format(path=IN_PATH_TWO,
+                                              version=RELATION_VERSION))
     
     tmp_p2p_df = sample_df.where(sample_df.company_type == u'网络借贷')
     tmp_pe_df = sample_df.where(sample_df.company_type == u'私募基金')
@@ -184,13 +189,15 @@ def spark_data_flow():
     #获取目标公司的相关信息
     #这里计算流程较长，为了就是获取风险关联企业：
     relation_df_one = spark.read.parquet(
-        ("/user/antifraud/hongjing2/dataflow/step_one/tid"
+        ("{path}"
          "/common_company_info_merge"
-         "/{version}").format(version=RELATION_VERSION))
+         "/{version}").format(path=IN_PATH_THREE,
+                              version=RELATION_VERSION))
     relation_df_two = spark.read.parquet(
-        ("/user/antifraud/hongjing2/dataflow/step_one/tid"
+        ("{path}"
          "/common_company_info_merge_v2"
-         "/{version}").format(version=RELATION_VERSION))    
+         "/{version}").format(path=IN_PATH_THREE,
+                              version=RELATION_VERSION))    
     
     
     high_risk_df = tid_nf_df.select(
@@ -257,13 +264,15 @@ def spark_data_flow():
     ).cache()
     
     common_static_feature_df_one = spark.read.json(
-        ("/user/antifraud/hongjing2/dataflow/step_one/prd"
+        ("{path}"
          "/common_static_feature_distribution"
-         "/{version}").format(version=RELATION_VERSION))
+         "/{version}").format(path=IN_PATH_FOUR,
+                              version=RELATION_VERSION))
     common_static_feature_df_two = spark.read.json(
-        ("/user/antifraud/hongjing2/dataflow/step_one/prd"
+        ("{path}"
          "/common_static_feature_distribution_v2"
-         "/{version}").format(version=RELATION_VERSION)) 
+         "/{version}").format(path=IN_PATH_FOUR,
+                              version=RELATION_VERSION))
     common_static_feature_df = common_static_feature_df_one.select(
         common_static_feature_df_one.bbd_qyxx_id,
         common_static_feature_df_one.company_name,
@@ -336,8 +345,9 @@ def spark_data_flow():
     #输出
     #已basic的名字为准
     basic_df = spark.read.parquet(
-         ("/user/antifraud/hongjing2/dataflow/step_one/raw/"
-          "/basic/{version}").format(version=RELATION_VERSION))
+         ("{path}"
+          "/basic/{version}").format(path=IN_PATH_ONE,
+                                     version=RELATION_VERSION))
     get_data_version_udf = fun.udf(get_data_version, tp.StringType())
     prd_nf_df = tid_nf_df.join(
         raw_xgxx_info,
@@ -352,7 +362,7 @@ def spark_data_flow():
             basic_df.company_name.isNotNull(), basic_df.company_name
         ).otherwise(
             tid_nf_df.company_name
-        ),
+        ).alias('company_name'),
         tid_nf_df.bbd_qyxx_id,
         tid_nf_df.risk_tags,
         tid_nf_df.risk_index,
@@ -415,8 +425,12 @@ if __name__ == '__main__':
     HIGH_RISK_RATIO = conf.getfloat('all_company_info', 'HIGH_RISK_RATIO')
     MIDDLE_RISK_RATIO = conf.getfloat('all_company_info', 'MIDDLE_RISK_RATIO')
     RELATION_VERSION = sys.argv[1]
-    
-    OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_three/prd/"
+
+    IN_PATH_ONE = conf.get('common_company_info', 'OUT_PATH')
+    IN_PATH_TWO = conf.get('feature_tags', 'OUT_PATH')
+    IN_PATH_THREE = conf.get('common_company_info_merge', 'OUT_PATH')
+    IN_PATH_FOUR = conf.get('common_company_feature', 'OUT_PATH')
+    OUT_PATH = conf.get('all_company_info', 'OUT_PATH')
     
     spark = get_spark_session()
     

@@ -37,7 +37,8 @@ WEIGHT_DICT = {
     u'小额贷款': 6}
 
 #适用于通用模型的部分
-#dw.qyxx_tags 
+#qyxx_tags 
+TABLE_NAME = dw.qyxx_tags
 TAGS_VERSION = 20170523
 TYPE_LIST = [u'新兴金融', u'融资担保', u'小额贷款']
 
@@ -102,6 +103,8 @@ CIRCXZCF_VERSION = 20170521
 FZJG_VERSION = 20170521
 #dw.qyxg_leijinrong_blacklist
 BLACK_VERSION = 20170602
+#dw.qyxx_state_owned_enterprise_background
+STATE_OWNED_VERSION = 20170521
 
 OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/raw/
 
@@ -109,11 +112,22 @@ OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/raw/
 
 
 
+
 [common_company_info_merge]
 
-IN_PATH = /user/antifraud/hongjing2/dataflow/step_one/raw/
 OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/tid/
 TMP_PATH = /user/antifraud/hongjing2/dataflow/step_one/tmp/
+
+
+
+
+
+
+[common_company_feature]
+
+OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/prd/
+
+
 
 
 
@@ -122,8 +136,6 @@ TMP_PATH = /user/antifraud/hongjing2/dataflow/step_one/tmp/
 
 #dw.qyxg_exchange
 EXCHANGE_VERSION = 20170521
-OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/prd/
-
 
 
 
@@ -136,9 +148,6 @@ OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/prd/
 PLATFORM_VERSION = 20170521
 #dw.qyxg_wdzj
 WDZJ_VERSION = 20170521
-OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/prd/
-
-
 
 
 
@@ -149,9 +158,6 @@ OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/prd/
 
 #dw.qyxg_jijin_simu
 SMJJ_VERSION = 20170521
-OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/prd/
-
-
 
 
 
@@ -162,9 +168,52 @@ OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/prd/
 
 #dw.qyxg_ex_member_list
 EX_MEMBER_VERSION = 20170423
-IN_PAHT = /user/antifraud/hongjing2/dataflow/step_one/prd/
+
+
+
+
+
+
+[feature_merge]
+
 OUT_PATH = /user/antifraud/hongjing2/dataflow/step_two/raw/
 
+
+
+
+
+
+[risk_score]
+
+OUT_PATH = /user/antifraud/hongjing2/dataflow/step_two/prd/
+
+
+
+
+
+
+[info_merge]
+
+MAPPING_PATH = /user/antifraud/source/company_county_mapping
+OUT_PATH = /user/antifraud/hongjing2/dataflow/step_three/raw/
+
+
+
+
+
+
+[feature_tags]
+
+OUT_PATH = /user/antifraud/hongjing2/dataflow/step_three/tid/
+
+
+
+
+
+
+[nf_feature_preprocessing]
+
+OUT_PATH = /user/antifraud/hongjing2/dataflow/step_two/tid/
 
 
 
@@ -175,3 +224,5 @@ OUT_PATH = /user/antifraud/hongjing2/dataflow/step_two/raw/
 #风险划分的比例
 HIGH_RISK_RATIO = 0.05
 MIDDLE_RISK_RATIO = 0.5
+
+OUT_PATH = /user/antifraud/hongjing2/dataflow/step_three/prd/

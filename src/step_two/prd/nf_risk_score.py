@@ -13,6 +13,7 @@ import json
 import math
 import numpy as np
 
+import configparser
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 
@@ -204,11 +205,14 @@ def get_spark_session():
     return spark
 
 if __name__ == '__main__':
+    conf = configparser.ConfigParser()    
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
     MODEL_FILE = ("/data5/antifraud/Hongjing2/data/inputdata/model/"
                   "GM_release_LR.model")
     
-    IN_PATH = "/user/antifraud/hongjing2/dataflow/step_two/tid"
-    OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_two/prd"
+    IN_PATH = conf.get('nf_feature_preprocessing', 'OUT_PATH')
+    OUT_PATH = conf.get('risk_score', 'OUT_PATH')
+    
     #中间结果版本
     RELATION_VERSION = sys.argv[1]
     

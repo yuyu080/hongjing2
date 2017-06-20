@@ -140,8 +140,8 @@ if __name__ == '__main__':
     #输入参数
     RELATION_VERSION = sys.argv[1]
     
-    IN_PAHT = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
-    OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_two/raw/"
+    IN_PAHT = conf.get('common_company_feature', 'OUT_PATH')
+    OUT_PATH = conf.get('feature_merge', 'OUT_PATH')
     
     spark = get_spark_session()
     

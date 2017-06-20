@@ -11,6 +11,7 @@ import os
 import math
 import json
 
+import configparser
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 from pyspark.sql import Row
@@ -186,11 +187,13 @@ def get_tags(row):
 
 def spark_data_flow():
     raw_pe_feature_df = spark.read.parquet(
-        ("/user/antifraud/hongjing2/dataflow/step_two/raw"
-         "/pe_feature_merge/{version}").format(version=RELATION_VERSION))
+        ("{path}/"
+         "pe_feature_merge/{version}").format(path=IN_PATH_ONE,
+                                              version=RELATION_VERSION))
     pe_info_df = spark.read.parquet(
-        ("/user/antifraud/hongjing2/dataflow/step_three/raw"
-         "/pe_info_merge/{version}").format(version=RELATION_VERSION))
+        ("{path}/"
+         "pe_info_merge/{version}").format(path=IN_PATH_TWO,
+                                           version=RELATION_VERSION))
     
     tid_pe_feature_df = raw_pe_feature_df.rdd.map(
         lambda r: Row(
@@ -252,10 +255,15 @@ def get_spark_session():
     return spark
 
 if __name__ == '__main__':
+    conf = configparser.ConfigParser()
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
+
     #中间结果版本
     RELATION_VERSION = sys.argv[1]
     
-    OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_three/tid/"
+    IN_PATH_ONE = conf.get('feature_merge', 'OUT_PATH')
+    IN_PATH_TWO = conf.get('info_merge', 'OUT_PATH')
+    OUT_PATH = conf.get('feature_tags', 'OUT_PATH')
     
     spark = get_spark_session()
     

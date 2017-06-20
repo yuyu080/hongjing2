@@ -72,7 +72,7 @@ def spark_data_flow():
             raw_basic_df.company_name.isNotNull(), raw_basic_df.company_name
         ).otherwise(
             raw_wdzj_df.company_name
-        ),
+        ).alias('company_name'),
         raw_wdzj_df.platform_name,
         raw_wdzj_df.platform_state,
         county_mapping_df.province,

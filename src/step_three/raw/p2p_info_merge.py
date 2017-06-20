@@ -10,6 +10,7 @@ import sys
 import os
 import json
 
+import configparser
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 from pyspark.sql import functions as fun
@@ -73,20 +74,20 @@ def spark_data_flow():
     get_risk_composition_udf = fun.udf(get_risk_composition, tp.StringType())
     
     raw_basic_df = spark.read.parquet(
-        ("/user/antifraud/hongjing2/dataflow/step_one/raw"
-         "/basic/{version}").format(version=RELATION_VERSION))
+        ("{path}/basic/{version}").format(path=IN_PATH_ONE,
+                                          version=RELATION_VERSION))
     raw_p2p_risk_score_df = spark.read.json(
-        ("/user/antifraud/hongjing2/dataflow/step_two/prd"
+        ("{path}/"
          "/p2p_feature_risk_score"
-         "/{version}").format(version=RELATION_VERSION))
+         "/{version}").format(path=IN_PATH_TWO,
+                              version=RELATION_VERSION))
     county_mapping_df = spark.read.csv(
-        "/user/antifraud/source/company_county_mapping", 
+        "{path}".format(path=MAPPING_PATH),
         sep='\t', 
         header=True)
     black_df = spark.read.parquet(
-        ("/user/antifraud/hongjing2/dataflow/step_one/raw"
-         "/black_company"
-         "/{version}").format(version=RELATION_VERSION)
+        ("{path}/black_company/{version}").format(path=IN_PATH_ONE,
+                                                  version=RELATION_VERSION)
     ).withColumn(
         'is_black', get_black_udf('company_name')
     )
@@ -187,10 +188,15 @@ def get_spark_session():
     return spark    
     
 if __name__ == '__main__':
+    conf = configparser.ConfigParser()
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
     #中间结果版本
     RELATION_VERSION = sys.argv[1] 
     
-    OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_three/raw/"
+    IN_PATH_ONE = conf.get('common_company_info', 'OUT_PATH')
+    IN_PATH_TWO = conf.get('risk_score', 'OUT_PATH')    
+    OUT_PATH = conf.get('info_merge', 'OUT_PATH')
+    MAPPING_PATH = conf.get('info_merge', 'MAPPING_PATH')  
     
     spark = get_spark_session()
     

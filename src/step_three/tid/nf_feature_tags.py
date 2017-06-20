@@ -11,6 +11,7 @@ import sys
 import os
 import json
 
+import configparser
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 from pyspark.sql import Row
@@ -152,11 +153,13 @@ def get_tags(row):
 
 def spark_data_flow():
     raw_nf_feature_df = spark.read.parquet(
-        ("/user/antifraud/hongjing2/dataflow/step_two/raw"
-         "/nf_feature_merge/{version}").format(version=RELATION_VERSION))
+        ("{path}/"
+         "nf_feature_merge/{version}").format(path=IN_PATH_ONE,
+                                              version=RELATION_VERSION))
     nf_info_df = spark.read.parquet(
-        ("/user/antifraud/hongjing2/dataflow/step_three/raw"
-         "/nf_info_merge/{version}").format(version=RELATION_VERSION))
+        ("{path}/"
+         "nf_info_merge/{version}").format(path=IN_PATH_TWO,
+                                           version=RELATION_VERSION))
     
     tid_nf_feature_df = raw_nf_feature_df.rdd.map(
         lambda r: Row(
@@ -164,7 +167,8 @@ def spark_data_flow():
             bbd_qyxx_id=r['bbd_qyxx_id'],
             risk_tags=get_tags(r)
         )
-    ).toDF().cache()
+    ).toDF(
+    ).cache()
     
     prd_nf_feature_df = tid_nf_feature_df.join(
         nf_info_df,
@@ -222,10 +226,15 @@ def get_spark_session():
     return spark
 
 if __name__ == '__main__':
+    conf = configparser.ConfigParser()
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
+
     #中间结果版本
     RELATION_VERSION = sys.argv[1]
     
-    OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_three/tid/"
+    IN_PATH_ONE = conf.get('feature_merge', 'OUT_PATH')
+    IN_PATH_TWO = conf.get('info_merge', 'OUT_PATH')
+    OUT_PATH = conf.get('feature_tags', 'OUT_PATH')
     
     spark = get_spark_session()
     

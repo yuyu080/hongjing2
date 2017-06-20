@@ -275,7 +275,7 @@ if __name__ == '__main__':
     #中间结果版本
     RELATION_VERSION = sys.argv[1]
     
-    OUT_PATH = conf.get('p2p_company_feature', 'OUT_PATH')
+    OUT_PATH = conf.get('common_company_feature', 'OUT_PATH')
     
     spark = get_spark_session()
     

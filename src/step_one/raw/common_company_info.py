@@ -140,18 +140,26 @@ def run():
     has_keyword_udf = fun.udf(has_keyword, tp.StringType())
     get_change_num_udf = fun.udf(get_change_num, tp.FloatType())
 
-
     #原始样本,由step_zero_prd得到
     sample_df = spark.read.parquet(
         "{path}/ljr_sample/{version}".format(version=SAMPLE_VERSION,
                                              path=OUT_PATH))
     
     #国企列表
-    url = "jdbc:mysql://10.10.10.12:3306/bbd_higgs?characterEncoding=UTF-8"
-    prop = {"user": "reader", "password":"Hkjhsdwe35", 
-            "driver": "com.mysql.jdbc.Driver"}
-    table = "qyxx_state_owned_enterprise_background"
-    so_df = spark.read.jdbc(url=url, table=table, properties=prop)
+    so_df = spark.sql(
+        '''
+        SELECT
+        bbd_qyxx_id,
+        company_name,
+        company_type,
+        bbd_uptime,
+        bbd_dotime
+        FROM
+        dw.qyxx_state_owned_enterprise_background
+        WHERE
+        dt='{version}'  
+        '''.format(version=STATE_OWNED_VERSION)
+    )
     os.system(
         ("hadoop fs -rmr "
          "{path}/"
@@ -197,8 +205,10 @@ def run():
         'company_province',
         'company_county'
     ).cache()
-    os.system("hadoop fs -rmr {path}/basic/{version}".format(version=RELATION_VERSION,
-                                                             path=OUT_PATH))
+    os.system(
+        ("hadoop fs -rmr "
+         "{path}/basic/{version}").format(version=RELATION_VERSION,
+                                          path=OUT_PATH))
     basic_df.repartition(10).write.parquet(
         "{path}/basic/{version}".format(version=RELATION_VERSION,
                                         path=OUT_PATH))
@@ -908,6 +918,8 @@ if __name__ == "__main__":
     CIRCXZCF_VERSION = conf.get('common_company_info', 'CIRCXZCF_VERSION')
     FZJG_VERSION = conf.get('common_company_info', 'CIRCXZCF_VERSION')
     BLACK_VERSION = conf.get('common_company_info', 'BLACK_VERSION')
+    STATE_OWNED_VERSION = conf.get('common_company_info', 
+                                   'STATE_OWNED_VERSION')
     SAMPLE_VERSION = RELATION_VERSION
     
     #数据输出路径

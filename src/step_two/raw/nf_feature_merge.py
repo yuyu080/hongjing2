@@ -99,12 +99,13 @@ def run():
 if __name__ == '__main__':
     conf = configparser.ConfigParser()    
     conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
+    
     #输入参数
     TYPE_LIST = eval(conf.get('input_sample_data', 'TYPE_LIST'))
     RELATION_VERSION = sys.argv[1]
     
-    IN_PAHT = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
-    OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_two/raw/"
+    IN_PAHT = conf.get('common_company_feature', 'OUT_PATH')
+    OUT_PATH = conf.get('feature_merge', 'OUT_PATH')
     
     spark = get_spark_session()
     

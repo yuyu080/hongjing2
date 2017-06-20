@@ -1355,12 +1355,16 @@ def run():
                              version=RELATION_VERSION))
 
 if __name__ == '__main__':  
+    import configparser
+    conf = configparser.ConfigParser()    
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
+    
     #中间结果版本
     RELATION_VERSION = sys.argv[1]
     
     #输入参数
-    IN_PATH = "/user/antifraud/hongjing2/dataflow/step_one/tid/"
-    OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_one/prd/"
+    IN_PATH = conf.get('common_company_info_merge', 'OUT_PATH')
+    OUT_PATH = conf.get('common_company_feature', 'OUT_PATH')
     WTYH_DEDUCTION_COMPANY_LIST = (
         "hdfs://bbdc6ha/user/antifraud/source/company_type_for_capital_risk/"
         "wtyh_company_type_20160816.py"

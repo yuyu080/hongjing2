@@ -871,7 +871,7 @@ if __name__ == "__main__":
     LEIJINRONG_VERSION = RELATION_VERSION
     
     #输入输出路径
-    IN_PATH = conf.get('common_company_info_merge', 'IN_PATH')
+    IN_PATH = conf.get('common_company_info', 'OUT_PATH')
     OUT_PATH = conf.get('common_company_info_merge', 'OUT_PATH')
 
     #除了TYPE_LIST中的企业外，其余企业还是用xgboost，因此这里需要将他们筛选出来

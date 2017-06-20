@@ -263,8 +263,8 @@ if __name__ == '__main__':
     EX_MEMBER_VERSION = conf.get('ex_feature_merge', 'EX_MEMBER_VERSION')
     RELATION_VERSION = sys.argv[1]
     
-    IN_PAHT = conf.get('ex_feature_merge', 'IN_PAHT')
-    OUT_PATH = conf.get('ex_feature_merge', 'OUT_PATH')
+    IN_PAHT = conf.get('common_company_feature', 'OUT_PATH')
+    OUT_PATH = conf.get('feature_merge', 'OUT_PATH')
     
     spark = get_spark_session()
     

@@ -176,13 +176,13 @@ def run():
                              version=RELATION_VERSION))
     
 if __name__ == '__main__':
-    conf = configparser.ConfigParser()    
+    conf = configparser.ConfigParser()
     conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
     #输入参数
     RELATION_VERSION = sys.argv[1]
     
-    IN_PAHT = "/user/antifraud/hongjing2/dataflow/step_two/raw/"
-    OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_two/tid/"
+    IN_PAHT = conf.get('feature_merge', 'OUT_PATH')
+    OUT_PATH = conf.get('nf_feature_preprocessing', 'OUT_PATH')
     
     spark = get_spark_session()
     
