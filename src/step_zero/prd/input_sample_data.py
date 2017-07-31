@@ -27,6 +27,7 @@ def raw_spark_data_flow():
     这是为了保证去重的同时而不过滤掉那些没有id的企业
     '''
     get_type_weight_udf = fun.udf(get_type_weight, tp.IntegerType())
+    
     #适用于通用模型的部分
     raw_tags_df = spark.sql(
         '''
@@ -38,8 +39,6 @@ def raw_spark_data_flow():
         {table}      
         WHERE
         dt='{version}'
-        AND
-        bbd_status = 1
         '''.format(table=TABLE_NAME,
                    version=TAGS_VERSION)
     )
@@ -49,88 +48,29 @@ def raw_spark_data_flow():
         'weight', get_type_weight_udf('company_type')
     )
     
-    #网络借贷P2P 
-    raw_wdzj_df = spark.sql(
+    #企业白名单
+    raw_white_tasg_df = spark.sql(
         '''
         SELECT
         bbd_qyxx_id,
         company_name,
-        '网络借贷' company_type
+        tag company_type
         FROM
-        dw.qyxg_wdzj
+        {table} 
         WHERE
         dt='{version}'
-        '''.format(version=WDZJ_VERSION)
+        '''.format(table=WHITE_TABLE_NAME,
+                   version=WHITE_TAGS_VERSION)
     )
-    
-    platform_df = spark.sql(
-        '''
-        SELECT
-        bbd_qyxx_id,
-        company_name,
-        '网络借贷' company_type
-        FROM
-        dw.qyxg_platform_data
-        WHERE
-        dt = '{version}'
-        '''.format(
-            version=PLATFORM_VERSION
-        )
-    )
-    
-    tid_wljd_df = raw_wdzj_df.union(
-        platform_df
+    tid_white_tasg_df = raw_white_tasg_df.where(
+        raw_white_tasg_df.company_type.isin(TYPE_LIST)
     ).withColumn(
         'weight', get_type_weight_udf('company_type')
-    ).dropDuplicates(
-        ['bbd_qyxx_id', 'company_name']
     )
     
-    #私募基金
-    smjj_df = spark.sql(
-        '''
-        SELECT
-        bbd_qyxx_id,
-        fund_manager_chinese company_name,
-        '私募基金' company_type
-        FROM
-        dw.qyxg_jijin_simu
-        WHERE
-        dt = '{version}'
-        '''.format(
-            version=SMJJ_VERSION
-        )
-    ).withColumn(
-        'weight', get_type_weight_udf('company_type')
-    ).dropDuplicates(
-        ['bbd_qyxx_id', 'company_name']
-    )
-    
-    #交易场所
-    exchange_df = spark.sql(
-        '''
-        SELECT
-        bbd_qyxx_id,
-        company_name,
-        '交易场所' company_type
-        FROM
-        dw.qyxg_exchange
-        WHERE
-        dt='{version}'
-        '''.format(version=EXCHANGE_VERSION)
-    ).withColumn(
-        'weight', get_type_weight_udf('company_type')
-    ).dropDuplicates(
-        ['bbd_qyxx_id', 'company_name']
-    )
-    
-    #合并各个行业的数据
+    #合并原始数据与白名单数据
     raw_all_df = tid_tags_df.union(
-        tid_wljd_df
-    ).union(
-        smjj_df
-    ).union(
-        exchange_df
+        tid_white_tasg_df
     )
     
     return raw_all_df
@@ -162,10 +102,11 @@ def spark_data_flow():
         bbd_qyxx_id,
         tag
         FROM
-        dw.qyxx_black_company
+        {table}
         WHERE
         dt='{version}'
-        '''.format(version=FILTER_VERSION)
+        '''.format(table=BLACK_TABLE_NAME,
+                   version=BLACK_VERSION)
     )
     #这里有个特殊规则：通过过滤名单中的“新兴金融”类企业过滤除私募基金外的所有企业
     hongjing_filter_df = filter_df.where(filter_df.tag == u'新兴金融')
@@ -241,27 +182,19 @@ if __name__ == '__main__':
     WEIGHT_DICT = eval(conf.get('input_sample_data', 'WEIGHT_DICT'))
     
     #适用于通用模型的部分
-    #qyxx_tags 
+    #qyxx_tag
     TABLE_NAME = conf.get('input_sample_data', 'TABLE_NAME')
     TAGS_VERSION = conf.get('input_sample_data', 'TAGS_VERSION')
     TYPE_LIST = eval(conf.get('input_sample_data', 'TYPE_LIST'))
-    
-    #网络借贷P2P
-    #dw.qyxg_platform_data
-    #dw.qyxg_wdzj
-    PLATFORM_VERSION = conf.get('input_sample_data', 'PLATFORM_VERSION')
-    WDZJ_VERSION = conf.get('input_sample_data', 'WDZJ_VERSION')
-    
-    #私募基金
-    #dw.qyxg_jijin_simu
-    SMJJ_VERSION = conf.get('input_sample_data', 'SMJJ_VERSION')
 
-    #交易场所
-    #dw.qyxg_exchange
-    EXCHANGE_VERSION = conf.get('input_sample_data', 'EXCHANGE_VERSION')
+    #需要增加的白名单
+    WHITE_TABLE_NAME = conf.get('input_sample_data', 'WHITE_TABLE_NAME')
+    WHITE_TAGS_VERSION = eval(conf.get('input_sample_data', 
+                                       'WHITE_TAGS_VERSION'))
     
     #需要过滤的数据版本
-    FILTER_VERSION = conf.get('input_sample_data', 'FILTER_VERSION')
+    BLACK_TABLE_NAME = conf.get('input_sample_data', 'BLACK_TABLE_NAME')
+    BLACK_VERSION = conf.get('input_sample_data', 'BLACK_VERSION')
     
     #中间结果版本，输出版本
     RELATION_VERSION = sys.argv[1]
