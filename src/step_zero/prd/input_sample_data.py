@@ -109,7 +109,9 @@ def spark_data_flow():
                    version=BLACK_VERSION)
     )
     #这里有个特殊规则：通过过滤名单中的“新兴金融”类企业过滤除私募基金外的所有企业
-    hongjing_filter_df = filter_df.where(filter_df.tag == u'新兴金融')
+    hongjing_filter_df = filter_df.where(
+        filter_df.tag.isin(TYPE_LIST)
+    )
     tid_all_df = tid_all_df.join(
         hongjing_filter_df,
         hongjing_filter_df.bbd_qyxx_id == tid_all_df.bbd_qyxx_id, 
