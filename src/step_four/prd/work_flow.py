@@ -12,7 +12,6 @@ def execute_some_step(step_name, step_child_name, file_name, version):
         --master yarn \
         --deploy-mode client \
         --driver-memory 15g \
-        --queue Anti_Fraud \
         --jars /usr/share/java/mysql-connector-java-5.1.39.jar \
         --driver-class-path /usr/share/java/mysql-connector-java-5.1.39.jar \
         {path}/{step_child_name}/{file_name} {version}
