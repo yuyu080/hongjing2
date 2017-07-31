@@ -691,7 +691,7 @@ def run(relation_version):
         filter_company_type_udf(sample_df.company_type)    
     ).join(
         tid_df,
-        fun.trim(tid_df.a_name) == fun.trim(sample_df.company_name),
+        fun.trim(tid_df.a) == fun.trim(sample_df.bbd_qyxx_id),
         'left_outer'
     ).select(
         sample_df.bbd_qyxx_id.alias('a'), 
