@@ -75,7 +75,7 @@ def run(relation_version):
                                                      file_name=file_name,
                                                      path=IN_PATH)
     #这里有个特殊逻辑，需要过滤通用部分的企业    
-    def filter_company_type(company_type, type_list=TYPE_LIST):
+    def filter_company_type(company_type, type_list=TYPE_XGBOOST_LIST):
         '''保留没在TYPE_LIST中的企业'''
         if company_type not in type_list:
             return True
@@ -874,8 +874,10 @@ if __name__ == "__main__":
     IN_PATH = conf.get('common_company_info', 'OUT_PATH')
     OUT_PATH = conf.get('common_company_info_merge', 'OUT_PATH')
 
-    #除了TYPE_LIST中的企业外，其余企业还是用xgboost，因此这里需要将他们筛选出来
-    TYPE_LIST = conf.get('input_sample_data', 'TYPE_LIST')
+    #除了TYPE_XGBOOST_LIST中的企业外，
+    #其余企业还是用xgboost，因此这里需要将他们筛选出来
+    TYPE_XGBOOST_LIST = conf.get('input_sample_data', 
+                                 'TYPE_XGBOOST_LIST')
 
     #sparkSession
     spark = get_spark_session()
