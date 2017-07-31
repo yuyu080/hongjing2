@@ -12,6 +12,7 @@ import sys
 import os
 import json
 
+import MySQLdb
 import configparser
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
@@ -20,6 +21,28 @@ from pyspark.sql.functions import row_number
 from pyspark.sql import functions as fun
 from pyspark.sql import types as tp
 
+
+def truncate_table(table):
+    '''连接mysql，执行一个SQL'''
+    db = MySQLdb.connect(host=PROP['ip'], user=PROP['user'], 
+                         passwd=PROP['password'], db=PROP['db_name'], 
+                         charset="utf8")
+    # 使用cursor()方法获取操作游标 
+    cursor = db.cursor()
+    # 使用execute方法执行SQL语句
+    sql = "TRUNCATE TABLE {0}".format(table)
+    try:
+        # 执行SQL语句
+        cursor.execute(sql)
+        # 提交到数据库执行
+        db.commit()
+    except:
+        # 发生错误时回滚
+        db.rollback()
+    # 关闭数据库连接
+    db.close()
+    
+    print "清空表{0}成功".format(table)
 
 def get_relation(col):
     '''
@@ -77,8 +100,9 @@ def spark_data_flow():
     
     #企业省份信息
     basic_df = spark.read.parquet(
-        ('/user/antifraud/hongjing2/dataflow/step_one'
-         '/raw/basic/{version}').format(version=RELATION_VERSION)
+        ('{path}'
+         '/raw/basic/{version}').format(path=IN_PATH,
+                                        version=RELATION_VERSION)
     )
     province_df = basic_df.select(
         'bbd_qyxx_id',
@@ -168,25 +192,27 @@ def run():
     )
         
     #输出到mysql
-    os.system(
-    ''' 
-    sqoop export \
-    --connect {url} \
-    --username {user} \
-    --password '{password}' \
-    --table {table} \
-    --export-dir {path}/{table} \
-    --input-fields-terminated-by '\\t' 
-    '''.format(
-        url=URL,
-        user=PROP['user'],
-        password=PROP['password'],
-        table=TABLE,
-        path=OUT_PATH
-    )
-    )
+    if IS_INTO_MYSQL:
+        truncate_table('ra_gather_place')
+        os.system(
+        ''' 
+        sqoop export \
+        --connect {url} \
+        --username {user} \
+        --password '{password}' \
+        --table {table} \
+        --export-dir {path}/{table} \
+        --input-fields-terminated-by '\\t' 
+        '''.format(
+                url=URL,
+                user=PROP['user'],
+                password=PROP['password'],
+                table=TABLE,
+                path=OUT_PATH
+            )
+        )
     
-    print '\n************\n导入大成功SUCCESS !!\n************\n'
+        print '\n************\n导入大成功SUCCESS !!\n************\n'
 
 def get_spark_session():   
     conf = SparkConf()
@@ -219,7 +245,9 @@ if __name__ == '__main__':
     #数据版本
     RELATION_VERSION = sys.argv[1]
     #输出
-    OUT_PATH = '/user/antifraud/hongjing2/dataflow/step_four/raw'    
+    IN_PATH = conf.get('common_company_info', 'OUT_PATH')
+    OUT_PATH = conf.get('to_mysql', 'OUT_PATH')
+    IS_INTO_MYSQL = conf.getboolean('to_mysql', 'IS_INTO_MYSQL')
     
     #mysql输出信息
     TABLE = 'ra_gather_place'
