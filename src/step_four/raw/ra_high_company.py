@@ -10,6 +10,7 @@ ra_high_company.py
 '''
 import os
 
+import MySQLdb
 import configparser
 from pyspark.sql import Window
 from pyspark.sql.functions import rank
@@ -17,6 +18,29 @@ from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 from pyspark.sql import functions as fun
 from pyspark.sql import types as tp
+
+
+def truncate_table(table):
+    '''连接mysql，执行一个SQL'''
+    db = MySQLdb.connect(host=PROP['ip'], user=PROP['user'], 
+                         passwd=PROP['password'], db=PROP['db_name'], 
+                         charset="utf8")
+    # 使用cursor()方法获取操作游标 
+    cursor = db.cursor()
+    # 使用execute方法执行SQL语句
+    sql = "TRUNCATE TABLE {0}".format(table)
+    try:
+        # 执行SQL语句
+        cursor.execute(sql)
+        # 提交到数据库执行
+        db.commit()
+    except:
+        # 发生错误时回滚
+        db.rollback()
+    # 关闭数据库连接
+    db.close()
+    
+    print "清空表{0}成功".format(table)
 
 def get_into_date(date_list):
     '''
@@ -251,24 +275,26 @@ def run():
     )
     
     #输出到mysql
-    os.system(
-    ''' 
-    sqoop export \
-    --connect {url} \
-    --username {user} \
-    --password '{password}' \
-    --table {table} \
-    --export-dir {path}/{table}/{version} \
-    --input-fields-terminated-by '\\t' 
-    '''.format(
-        url=URL,
-        user=PROP['user'],
-        password=PROP['password'],
-        table=TABLE,
-        path=OUT_PATH,
-        version=NEW_VERSION
-    )
-    )
+    if IS_INTO_MYSQL:
+        truncate_table('ra_high_company')
+        os.system(
+        ''' 
+        sqoop export \
+        --connect {url} \
+        --username {user} \
+        --password '{password}' \
+        --table {table} \
+        --export-dir {path}/{table}/{version} \
+        --input-fields-terminated-by '\\t' 
+        '''.format(
+                url=URL,
+                user=PROP['user'],
+                password=PROP['password'],
+                table=TABLE,
+                path=OUT_PATH,
+                version=NEW_VERSION
+            )
+        )
     
     print '\n************\n导入大成功SUCCESS !!\n************\n'
 
@@ -301,11 +327,14 @@ if __name__ == '__main__':
     conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
 
     #输入参数
-    IN_PATH = '/user/antifraud/hongjing2/dataflow/step_three/prd'
     VERSION_LIST = eval(conf.get('common', 'RELATION_VERSIONS'))
     VERSION_LIST.sort()
     OLD_VERSION, NEW_VERSION = VERSION_LIST[-2:]
-    OUT_PATH = '/user/antifraud/hongjing2/dataflow/step_four/raw'
+    
+    #结果存一份在HDFS，同时判断是否输出到mysql
+    IN_PATH = conf.get('all_company_info', 'OUT_PATH')
+    OUT_PATH = conf.get('to_mysql', 'OUT_PATH')
+    IS_INTO_MYSQL = conf.getboolean('to_mysql', 'IS_INTO_MYSQL')
     
     #mysql输出信息
     TABLE = 'ra_high_company'
