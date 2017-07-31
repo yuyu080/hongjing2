@@ -48,7 +48,7 @@ TABLE_NAME = dw.qyxx_tag
 TAGS_VERSION = 20170719
 TYPE_LIST = [u'新兴金融', u'融资担保', u'小额贷款',
              u'私募基金', u'交易场所', u'网络借贷']
-TYPE_XGBOOST_LIST = [u'新兴金融', u'融资担保', u'小额贷款']
+TYPE_LR_LIST = [u'新兴金融', u'融资担保', u'小额贷款']
 
 #需要增加的白名单
 WHITE_TABLE_NAME = dw.qyxx_tag_white
