@@ -11,11 +11,35 @@ ra_black_white.py {version}
 import os
 import sys
 
+import MySQLdb
 import configparser
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 from pyspark.sql import functions as fun
 from pyspark.sql import types as tp
+
+
+def truncate_table(table):
+    '''连接mysql，执行一个SQL'''
+    db = MySQLdb.connect(host=PROP['ip'], user=PROP['user'], 
+                         passwd=PROP['password'], db=PROP['db_name'], 
+                         charset="utf8")
+    # 使用cursor()方法获取操作游标 
+    cursor = db.cursor()
+    # 使用execute方法执行SQL语句
+    sql = "TRUNCATE TABLE {0}".format(table)
+    try:
+        # 执行SQL语句
+        cursor.execute(sql)
+        # 提交到数据库执行
+        db.commit()
+    except:
+        # 发生错误时回滚
+        db.rollback()
+    # 关闭数据库连接
+    db.close()
+    
+    print "清空表{0}成功".format(table)
 
 def is_black(platform_state):
     '''判断是否是黑企业'''
@@ -51,10 +75,11 @@ def spark_data_flow():
         '''.format(version=WDZJ_VERSION)
     )
     raw_basic_df = spark.read.parquet(
-        ("/user/antifraud/hongjing2/dataflow/step_one/raw"
-         "/basic/{version}").format(version=RELATION_VERSION))
+        ("{path}"
+         "/basic/{version}").format(path=IN_PATH,
+                                    version=RELATION_VERSION))
     county_mapping_df = spark.read.csv(
-        "/user/antifraud/source/company_county_mapping", 
+        "{path}".format(path=MAPPING_PATH), 
         sep='\t', 
         header=True)
     
@@ -69,7 +94,8 @@ def spark_data_flow():
     ).select(
         raw_wdzj_df.bbd_qyxx_id,
         fun.when(
-            raw_basic_df.company_name.isNotNull(), raw_basic_df.company_name
+            raw_basic_df.company_name.isNotNull(), 
+            raw_basic_df.company_name
         ).otherwise(
             raw_wdzj_df.company_name
         ).alias('company_name'),
@@ -142,23 +168,27 @@ def run():
     )
 
     #输出到mysql
-    os.system(
-    ''' 
-    sqoop export \
-    --connect {url} \
-    --username {user} \
-    --password '{password}' \
-    --table {table} \
-    --export-dir {path}/{table} \
-    --input-fields-terminated-by '\\t' 
-    '''.format(
-            url=URL,
-            user=PROP['user'],
-            password=PROP['password'],
-            table=TABLE,
-            path=OUT_PATH
+    if IS_INTO_MYSQL:
+        truncate_table('ra_black_white')
+        os.system(
+        ''' 
+        sqoop export \
+        --connect {url} \
+        --username {user} \
+        --password '{password}' \
+        --table {table} \
+        --export-dir {path}/{table} \
+        --input-fields-terminated-by '\\t' 
+        '''.format(
+                url=URL,
+                user=PROP['user'],
+                password=PROP['password'],
+                table=TABLE,
+                path=OUT_PATH
+            )
         )
-    )
+        
+        print '\n************\n导入大成功SUCCESS !!\n************\n'
 
 def get_spark_session():   
     conf = SparkConf()
@@ -192,7 +222,12 @@ if __name__ == '__main__':
     PLATFORM_VERSION = conf.get('p2p_company_feature', 'PLATFORM_VERSION')
     WDZJ_VERSION = conf.get('p2p_company_feature', 'WDZJ_VERSION')
     RELATION_VERSION = sys.argv[1]
-    OUT_PATH = '/user/antifraud/hongjing2/dataflow/step_four/raw'
+    
+    #结果存一份在HDFS，同时判断是否输出到mysql
+    IN_PATH = conf.get('common_company_info', 'OUT_PATH')
+    IS_INTO_MYSQL = conf.getboolean('to_mysql', 'IS_INTO_MYSQL')
+    MAPPING_PATH = conf.get('info_merge', 'MAPPING_PATH')
+    OUT_PATH = conf.get('to_mysql', 'OUT_PATH')
     
     #mysql输出信息
     TABLE = 'ra_black_white'
