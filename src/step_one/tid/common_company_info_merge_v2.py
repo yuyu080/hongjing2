@@ -829,6 +829,8 @@ def raw_spark_data_flow():
         zgcpwsw_specific_count_df.zgcpwsw_specific_num.alias(
             'zgcpwsw_specific'
         )
+    ).dropDuplicates(
+        ['bbd_qyxx_id']
     ).cache()
 
     #某公司是否与黑名单库中任意一家企业存在利益一致行动关系（是1否0）
@@ -987,7 +989,7 @@ def prd_spark_data_flow():
     #2.3：根据样本列表构建属性图
     ##获取关联方
     ##这里有个特殊逻辑，需要过滤非通用部分的企业
-    def filter_company_type(company_type, type_list=TYPE_LIST):
+    def filter_company_type(company_type, type_list=TYPE_LR_LIST):
         '''保留在TYPE_LIST中的企业'''
         if company_type in type_list:
             return True
@@ -1215,8 +1217,8 @@ if __name__ == "__main__":
     OUT_PATH = conf.get('common_company_info_merge', 'OUT_PATH')
     TMP_PATH = conf.get('common_company_info_merge', 'TMP_PATH')
 
-    #除了TYPE_LIST中的企业外，其余企业还是用xgboost，因此这里需要将他们筛选出来
-    TYPE_LIST = conf.get('input_sample_data', 'TYPE_LIST')
+    #除了TYPE_LR_LIST中的企业外，其余企业还是用xgboost，因此这里需要将他们筛选出来
+    TYPE_LR_LIST = conf.get('input_sample_data', 'TYPE_LR_LIST')
 
     #sparkSession
     spark = get_spark_session()
