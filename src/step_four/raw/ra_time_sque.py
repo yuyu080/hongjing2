@@ -12,6 +12,7 @@ import json
 import numpy as np
 import os
 
+import MySQLdb
 import configparser
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
@@ -19,7 +20,27 @@ from pyspark.sql import functions as fun
 from pyspark.sql import types as tp
 from pyspark.sql import Row
 
- 
+def truncate_table(table):
+    '''连接mysql，执行一个SQL'''
+    db = MySQLdb.connect(host=PROP['ip'], user=PROP['user'], 
+                         passwd=PROP['password'], db=PROP['db_name'], 
+                         charset="utf8")
+    # 使用cursor()方法获取操作游标 
+    cursor = db.cursor()
+    # 使用execute方法执行SQL语句
+    sql = "TRUNCATE TABLE {0}".format(table)
+    try:
+        # 执行SQL语句
+        cursor.execute(sql)
+        # 提交到数据库执行
+        db.commit()
+    except:
+        # 发生错误时回滚
+        db.rollback()
+    # 关闭数据库连接
+    db.close()
+    
+    print "清空表{0}成功".format(table)
 
 def get_median(iter_obj):
     '''
@@ -183,23 +204,25 @@ def run():
     )
     
     #输出到mysql
-    os.system(
-    ''' 
-    sqoop export \
-    --connect {url} \
-    --username {user} \
-    --password '{password}' \
-    --table {table} \
-    --export-dir {path}/{table} \
-    --input-fields-terminated-by '\\t' 
-    '''.format(
-        url=URL,
-        user=PROP['user'],
-        password=PROP['password'],
-        table=TABLE,
-        path=OUT_PATH
-    )
-    )    
+    if IS_INTO_MYSQL:
+        truncate_table('ra_time_sque')
+        os.system(
+        ''' 
+        sqoop export \
+        --connect {url} \
+        --username {user} \
+        --password '{password}' \
+        --table {table} \
+        --export-dir {path}/{table} \
+        --input-fields-terminated-by '\\t' 
+        '''.format(
+                url=URL,
+                user=PROP['user'],
+                password=PROP['password'],
+                table=TABLE,
+                path=OUT_PATH
+            )
+        )
     print '\n************\n导入大成功SUCCESS !!\n************\n'
 
 def get_spark_session():   
@@ -233,9 +256,10 @@ if __name__ == '__main__':
     #所有数据版本
     VERSION_LIST = eval(conf.get('common', 'RELATION_VERSIONS'))
 
-    #输入路径
-    IN_PATH = '/user/antifraud/hongjing2/dataflow/step_three/prd/'    
-    OUT_PATH = '/user/antifraud/hongjing2/dataflow/step_four/raw'
+    #结果存一份在HDFS，同时判断是否输出到mysql
+    IN_PATH = conf.get('all_company_info', 'OUT_PATH')
+    OUT_PATH = conf.get('to_mysql', 'OUT_PATH')
+    IS_INTO_MYSQL = conf.getboolean('to_mysql', 'IS_INTO_MYSQL')
     
     #mysql输出信息
     TABLE = 'ra_time_sque'
