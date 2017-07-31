@@ -44,7 +44,7 @@ def get_tags(row):
             tags.append(u'公司成立时间较短')
         if (row['feature_7']['e'] and 
                 row['feature_7']['e_1'] / row['feature_7']['e'] >= 0.3):
-            tags.append(u'大专及大专以下或不限专业招聘比例较高')
+            tags.append(u'低学历人员招聘比例较高')
         if row['feature_17']['x'] >= 3:
             tags.append(u'对外投资公司数量较多')
         return {
@@ -56,7 +56,7 @@ def get_tags(row):
         if (row['feature_10']['0']['ktgg'] + 
                 row['feature_10']['0']['rmfygg'] +
                 row['feature_10']['0']['zgcpwsw']) >= 10:
-            tags.append(u'企业诉讼文书数量较多')
+            tags.append(u'企业存在诉讼文书')
         if row['feature_10']['0']['lending']:
             tags.append(u'企业存在“民间借贷”类诉讼文书')
         if row['feature_11']['0']['xzcf']:
@@ -71,48 +71,49 @@ def get_tags(row):
             risk_name: tags
         }
     
-    def get_all_nums(feature_name, distances=['0', '1', '2', '3']):
-        return sum(
-            map(
-                sum, 
-                [v.asDict().values() 
-                     for k ,v in row[feature_name].asDict().iteritems() 
-                     if k in distances]))
-    def get_some_nums(feature_name, value_name, distances=['0', '1', '2', '3']):
+    def get_all_nums(feature_name, value_names, distances=['1', '2', '3']):
+        return sum([v.asDict().get(each_value_name, 0)
+                     for k ,v in row[feature_name].asDict().iteritems()
+                     for each_value_name in value_names
+                     if k in distances])
+    def get_some_nums(feature_name, value_name, distances=['1', '2', '3']):
         return sum([
                 v.asDict().get(value_name, 0)
                 for k, v in row[feature_name].asDict().iteritems()
-                if k in distances])         
+                if k in distances])
     def get_static_relationship_risk(risk_name=u'静态关联方风险'):
         tags = []
-        if get_all_nums('feature_10', distances=['0', '1', '2']) >= 15:
-            tags.append(u'二度内关联方诉讼文书数量较多')
-        if get_some_nums('feature_10', 'lending') >= 3:
-            tags.append(u'三度内关联方存在较多“民间借贷”类诉讼文书')
-        if get_some_nums('feature_11', 'xzcf', distances=['0', '1', '2']):
-            tags.append(u'二度内关联方存在受行政处罚企业')
-        if get_some_nums('feature_12', 'zhixing'):
-            tags.append(u'三度内关联方存在被执行人企业数量较多')
-        if get_some_nums('feature_12', 'dishonesty'):
-            tags.append(u'三度内关联方存在失信被执行人企业')
-        if get_some_nums('feature_13', 'estatus', distances=['0', '1', '2']):
-            tags.append(u'二度内关联方存在吊销企业')
-        if get_some_nums('feature_13', 'jyyc', distances=['0', '1', '2']):
-            tags.append(u'二度内关联方存在经营异常企业')
-        if row['feature_8']['t_2'] and row['feature_8']['t_2'] <= 365:
-            tags.append(u'二度内法人关联方平均成立时间较短')
-        if row['feature_15']['x_1'] >= 10:
-            tags.append(u'二度内单个关联自然人中最大投资企业数量较多')
-        if row['feature_15']['x_2'] >= 25:
-            tags.append(u'二度内单个关联法人最大投资企业数量较多')
+        if get_all_nums('feature_10', 
+                        ['ktgg_1', 'rmfygg_1', 'zgcpwsw_1'],
+                        distances=['1', '2']) >= 10:
+            tags.append(u'关联方涉诉企业较多')
+        if get_some_nums('feature_10', 'lending_1'):
+            tags.append(u'关联方存在涉“民间借贷”类诉讼企业')
+        if get_some_nums('feature_11', 'xzcf_1', distances=['1', '2']):
+            tags.append(u'关联方存在受行政处罚企业')
+        if get_some_nums('feature_12', 'zhixing_1'):
+            tags.append(u'关联方存在被执行人企业')
+        if get_some_nums('feature_12', 'dishonesty_1'):
+            tags.append(u'关联方存在失信被执行人企业')
+        if get_some_nums('feature_13', 'estatus'):
+            tags.append(u'关联方存在吊销企业')
+        if get_some_nums('feature_13', 'jyyc_1', distances=['1', '2']):
+            tags.append(u'关联方存在经营异常企业')
+        if row['feature_8']['t_2'] and row['feature_8']['t_2'] <= 800:
+            tags.append(u'法人关联方平均成立时间较短')
+        if row['feature_15']['x_1'] >= 20:
+            tags.append(u'单个关联自然人最大投资企业数量较多')
+        if row['feature_15']['x_2'] >= 40:
+            tags.append(u'单个关联法人最大投资企业数量较多')
         if ((row['feature_16']['y_1'] + row['feature_16']['y_2']) /
-               (row['feature_16']['y_1'] + row['feature_16']['y_2'] +
-                row['feature_16']['x_1'] + row['feature_16']['x_2'] + 0.01)) >= 0.9:
-            tags.append(u'二度内关联方中自然人比例较高')
-        if row['feature_21']['n'] >= 2:
+               (row['feature_16']['x_1'] + row['feature_16']['x_2'] + 
+                0.01)) >= 1.:
+            tags.append(u'关联方中自然人比例较高')
+        if row['feature_21']['n']:
             tags.append(u'二度内关联企业中地址相同公司较多')
-        if (row['feature_23']['b_1'] + row['feature_23']['b_2']) :
-            tags.append(u'二度内关联方中存在黑名单企业')
+        if (row['feature_23']['b_1'] + row['feature_23']['b_2'] + 
+            row['feature_23']['b_3']):
+            tags.append(u'关联方中存在黑名单企业')
         return {
             risk_name: tags
         }
