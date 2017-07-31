@@ -1003,7 +1003,7 @@ def prd_spark_data_flow():
         filter_company_type_udf(sample_df.company_type)
     ).join(
         tid_df,
-        fun.trim(tid_df.a_name) == fun.trim(sample_df.company_name),
+        fun.trim(tid_df.a) == fun.trim(sample_df.bbd_qyxx_id),
         'left_outer'
     ).select(
         'a', 'b', 'c',
@@ -1015,7 +1015,7 @@ def prd_spark_data_flow():
     ##目标公司信息
     tid_company_merge_df = tid_company_merge_df.join(
         tid_company_info_df,
-        tid_company_info_df.company_name == tid_company_merge_df.a_name,
+        tid_company_info_df.bbd_qyxx_id == tid_company_merge_df.a,
         'left_outer'
     ).select(
         tid_company_info_df.bbd_qyxx_id.alias('a'), 
