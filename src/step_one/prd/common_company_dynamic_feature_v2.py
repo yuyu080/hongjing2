@@ -127,7 +127,7 @@ def spark_data_flow(tid_old_version, tid_new_version):
     
     return dynamic_risk_data
     
-def get_spark_session():   
+def get_spark_session():
     conf = SparkConf()
     conf.setMaster('yarn-client')
     conf.set("spark.yarn.am.cores", 7)
