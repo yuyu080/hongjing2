@@ -23,38 +23,40 @@ def sigmoid(x):
 def get_first_grade_indexes(row):
     '''计算一级指标'''
     vector = row[4]
-    F1_weight = [78.995978788237665, 19.643289163698, 1.3607320480643235]
-    F2_weight = [26.060202553046778, 32.455344310155851, 
-                 35.422074212291704, 6.062378924505663]
-    F3_weight = [8.5671628439652956, 67.099469406473432, 24.33336774956128]
-    F4_weight = [5.4992316645363379, 0.73619670729601905, 
-                 16.465178242190262, 6.8112990078436821, 
-                 27.336531281175152, 5.9500466959961198, 
-                 0.94871599993642608, 35.054955599386361, 1.1978448016396601]
-    F5_weight = [2.1642169432775109, 7.2205710674551362, 
-                 2.7554815418792837, 1.8386921453073, 
-                 4.9583378078768945, 0.24537414679201996,
-                 0.14077225761444445, 75.358040614215426, 5.3185134755819945]
+    F1_weight = [-0.79, 0.196, -0.014]
+    F2_weight = [0.261, 0.325, -0.354, -0.061]
+    F3_weight = [-0.086, -0.671, 0.243]
+    F4_weight = [0.055, -0.007, 0.165,
+                 0.068, -0.273, -0.06,
+                 -0.009, 0.351, -0.012]
+    F5_weight = [-0.022, -0.072, -0.028,
+                 -0.018, -0.05, 0.002,
+                 0.001, -0.754, -0.053]
     
     #综合实力风险
-    GM_company_strength_risk = np.dot(
-        F1_weight, map(sigmoid,[vector[1], vector[2], vector[4]]))
+    GM_company_strength_risk = sigmoid(np.dot(F1_weight, 
+                                              [vector[1], vector[2], 
+                                               vector[4]])) * 100.
     #经营行为风险
-    GM_behavior_risk = np.dot(F2_weight, map(
-        sigmoid, [vector[5], vector[6], vector[7], vector[8]]))
+    GM_behavior_risk = sigmoid(np.dot(F2_weight, 
+                                      [vector[5], vector[6], 
+                                       vector[7], vector[8]])) * 100.
     #企业诚信风险
-    GM_credit_risk = np.dot(F3_weight, map(
-        sigmoid, [vector[9], vector[10], vector[12]]))
+    GM_credit_risk = sigmoid(np.dot(F3_weight, 
+                                    [vector[9], vector[10], 
+                                     vector[12]])) * 100.
     #静态关联方风险
-    GM_static_relationship_risk = np.dot(F4_weight, map(
-        sigmoid, [vector[14], vector[15], vector[16],
-                  vector[17], vector[19], vector[20],
-                  vector[21], row[4][22], vector[23]]))
+    GM_static_relationship_risk = sigmoid(np.dot(
+        F4_weight,[vector[14], vector[15], vector[16],
+                   vector[17], vector[19], vector[20],
+                   vector[21], row[4][22], vector[23]])) * 100.
+
     #动态关联方风险
-    GM_dynamic_relationship_risk = np.dot(F5_weight, map(
-        sigmoid, [vector[24], vector[27], vector[28],
-                  vector[29], vector[31], vector[32],
-                  vector[33], vector[36], vector[38]]))
+    GM_dynamic_relationship_risk = sigmoid(np.dot(
+        F5_weight,[vector[24], vector[27], vector[28],
+                   vector[29], vector[31], vector[32],
+                   vector[33], vector[36], vector[38]])) * 100.
+
     return dict(
             bbd_qyxx_id=row[0],
             company_name=row[1],
