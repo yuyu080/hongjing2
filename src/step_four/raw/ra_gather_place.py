@@ -101,7 +101,7 @@ def spark_data_flow():
     #企业省份信息
     basic_df = spark.read.parquet(
         ('{path}'
-         '/raw/basic/{version}').format(path=IN_PATH,
+         '/basic/{version}').format(path=IN_PATH,
                                         version=RELATION_VERSION)
     )
     province_df = basic_df.select(
