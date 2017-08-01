@@ -166,11 +166,11 @@ def raw_spark_data_flow():
     HIGH_RISK_POINT = risk_list[high_risk_point_index]
     
     def get_risk_rank(risk_index):
-        if risk_index < MIDDLE_RISK_POINT:
+        if risk_index <= MIDDLE_RISK_POINT:
             return u'持续监控'
-        elif MIDDLE_RISK_POINT <= risk_index < HIGH_RISK_POINT:
+        elif MIDDLE_RISK_POINT < risk_index <= HIGH_RISK_POINT:
             return u'重点关注'
-        elif HIGH_RISK_POINT <= risk_index:
+        elif HIGH_RISK_POINT < risk_index:
             return u'高危预警'
     get_risk_rank_udf = fun.udf(get_risk_rank, tp.StringType())    
 
