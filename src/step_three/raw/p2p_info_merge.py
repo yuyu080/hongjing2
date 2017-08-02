@@ -146,7 +146,7 @@ def spark_data_flow():
         'county',
         'is_black'
     ).dropDuplicates(
-        ['company_name']
+        ['bbd_qyxx_id']
     )
     
     return tid_p2p_risk_score_df

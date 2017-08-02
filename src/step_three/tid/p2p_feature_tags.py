@@ -219,7 +219,7 @@ def spark_data_flow():
         
     prd_p2p_feature_df = tid_p2p_feature_df.join(
         p2p_info_df,
-        p2p_info_df.company_name == tid_p2p_feature_df.company_name
+        p2p_info_df.bbd_qyxx_id == tid_p2p_feature_df.bbd_qyxx_id
     ).select(
         tid_p2p_feature_df.company_name,
         tid_p2p_feature_df.bbd_qyxx_id,

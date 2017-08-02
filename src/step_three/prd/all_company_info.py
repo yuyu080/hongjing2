@@ -80,7 +80,7 @@ def raw_spark_data_flow():
     #确保一个公司只会存在一个company_type
     tid_nf_df = raw_nf_df.join(
         tmp_nf_df,
-        ['company_name']
+        ['bbd_qyxx_id']
     ).select(
         raw_nf_df.company_name,
         raw_nf_df.bbd_qyxx_id,
@@ -96,7 +96,7 @@ def raw_spark_data_flow():
     
     tid_p2p_df = raw_p2p_df.join(
         tmp_p2p_df,
-        ['company_name']
+        ['bbd_qyxx_id']
     ).select(
         raw_p2p_df.company_name,
         raw_p2p_df.bbd_qyxx_id,
@@ -112,7 +112,7 @@ def raw_spark_data_flow():
     
     tid_pe_df = raw_pe_df.join(
         tmp_pe_df,
-        ['company_name']
+        ['bbd_qyxx_id']
     ).select(
         raw_pe_df.company_name,
         raw_pe_df.bbd_qyxx_id,
@@ -128,7 +128,7 @@ def raw_spark_data_flow():
     
     tid_ex_df = raw_ex_df.join(
         tmp_ex_df,
-        ['company_name']
+        ['bbd_qyxx_id']
     ).select(
         raw_ex_df.company_name,
         raw_ex_df.bbd_qyxx_id,
@@ -149,7 +149,7 @@ def raw_spark_data_flow():
     ).union(
         tid_ex_df
     ).dropDuplicates(
-        ['bbd_qyxx_id', 'company_name']
+        ['bbd_qyxx_id']
     ).cache()
     
     #在prd_df的基础上，获取每个公司的风险等级
@@ -377,6 +377,8 @@ def spark_data_flow():
         get_data_version_udf().alias('data_version'),
         fun.current_timestamp().alias('gmt_create'),
         fun.current_timestamp().alias('gmt_update')
+    ).dropDuplicates(
+        ['bbd_qyxx_id']    
     )
     return prd_nf_df
 

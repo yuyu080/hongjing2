@@ -186,7 +186,7 @@ def spark_data_flow():
     ).toDF()
     prd_ex_feature_df = tid_ex_feature_df.join(
         ex_info_df,
-        ex_info_df.company_name == tid_ex_feature_df.company_name
+        ex_info_df.bbd_qyxx_id == tid_ex_feature_df.bbd_qyxx_id
     ).select(
         tid_ex_feature_df.company_name,
         tid_ex_feature_df.bbd_qyxx_id,

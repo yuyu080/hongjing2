@@ -173,7 +173,7 @@ def spark_data_flow():
     
     prd_nf_feature_df = tid_nf_feature_df.join(
         nf_info_df,
-        nf_info_df.company_name == tid_nf_feature_df.company_name
+        nf_info_df.bbd_qyxx_id == tid_nf_feature_df.bbd_qyxx_id
     ).select(
         tid_nf_feature_df.company_name,
         tid_nf_feature_df.bbd_qyxx_id,

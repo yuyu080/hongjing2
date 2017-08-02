@@ -204,7 +204,7 @@ def spark_data_flow():
     ).toDF()
     prd_pe_feature_df = tid_pe_feature_df.join(
         pe_info_df,
-        pe_info_df.company_name == tid_pe_feature_df.company_name
+        pe_info_df.bbd_qyxx_id == tid_pe_feature_df.bbd_qyxx_id
     ).select(
         tid_pe_feature_df.company_name,
         tid_pe_feature_df.bbd_qyxx_id,
