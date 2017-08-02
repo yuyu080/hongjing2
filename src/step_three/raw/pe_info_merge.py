@@ -98,10 +98,10 @@ def spark_data_flow():
         'left_outer'
     ).join(
         black_df,
-        black_df.company_name == tid_pe_risk_score_df.company_name,
+        black_df.bbd_qyxx_id == tid_pe_risk_score_df.bbd_qyxx_id,
         'left_outer'
     ).select(
-        'bbd_qyxx_id',
+        tid_pe_risk_score_df.bbd_qyxx_id,
         tid_pe_risk_score_df.company_name,
         'risk_index',
         'risk_composition',

@@ -819,6 +819,7 @@ def run():
         '''
         SELECT 
         company_name, 
+        bbd_qyxx_id,
         'black' company_type
         FROM 
         dw.qyxg_leijinrong_blacklist

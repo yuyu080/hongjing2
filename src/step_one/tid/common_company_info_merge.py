@@ -659,7 +659,7 @@ def run(relation_version):
     #是否是黑企业
     tid_company_info_df = tid_company_info_df.join(
         black_df,
-        tid_company_info_df.company_name == black_df.company_name,
+        tid_company_info_df.bbd_qyxx_id == black_df.bbd_qyxx_id,
         'left_outer'
     ).select(
         tid_company_info_df.bbd_qyxx_id,
