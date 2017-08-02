@@ -78,13 +78,11 @@ def ex_supplement_flow():
     '''    
     #黑企业名单: dw.qyxg_leijinrong_blacklist
     is_black_udf = fun.udf(is_black, tp.IntegerType())
-    nf_black_df = spark.sql(
-        '''
-        SELECT
-        company_name
-        FROM 
-        dw.qyxg_leijinrong_blacklist
-        '''
+    nf_black_df =  spark.read.parquet(
+        ("{path}"
+         "/black_company"
+         "/{version}").format(path=IN_PATH_TWO,
+                              version=RELATION_VERSION)
     ).dropDuplicates(
         ['company_name']
     ).withColumn(
@@ -94,9 +92,10 @@ def ex_supplement_flow():
     #取新金融top5%的企业
     is_risk_udf = fun.udf(is_risk, tp.IntegerType())
     raw_nf_top_df = spark.read.json(
-        ("/user/antifraud/hongjing2/dataflow/step_two/prd"
+        ("{path}"
          "/nf_feature_risk_score"
-         "/{version}").format(version=RELATION_VERSION)
+         "/{version}").format(path=IN_PATH_THREE,
+                              version=RELATION_VERSION)
     ).select(
         'company_name',
         'total_score'
@@ -168,15 +167,15 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
     '''
     static_df = spark.read.json(        
         "{path}/"
-        "common_static_feature_distribution/{version}".format(path=IN_PAHT, 
+        "common_static_feature_distribution/{version}".format(path=IN_PATH_ONE, 
                                                               version=static_version))
     dynamic_df = spark.read.json(
         "{path}/"
-        "common_dynamic_feature_distribution/{version}".format(path=IN_PAHT, 
+        "common_dynamic_feature_distribution/{version}".format(path=IN_PATH_ONE, 
                                                                version=dynamic_version))
     ex_df = spark.read.json(
         "{path}/"
-        "ex_feature_distribution/{version}".format(path=IN_PAHT, 
+        "ex_feature_distribution/{version}".format(path=IN_PATH_ONE, 
                                                    version=relation_version))
     #交易平台的补充指标
     ex_supplement_df = ex_supplement_flow()
@@ -263,7 +262,9 @@ if __name__ == '__main__':
     EX_MEMBER_VERSION = conf.get('ex_feature_merge', 'EX_MEMBER_VERSION')
     RELATION_VERSION = sys.argv[1]
     
-    IN_PAHT = conf.get('common_company_feature', 'OUT_PATH')
+    IN_PATH_ONE = conf.get('common_company_feature', 'OUT_PATH')
+    IN_PATH_TWO = conf.get('common_company_info', 'OUT_PATH')
+    IN_PATH_THREE = conf.get('risk_score', 'OUT_PATH')
     OUT_PATH = conf.get('feature_merge', 'OUT_PATH')
     
     spark = get_spark_session()
