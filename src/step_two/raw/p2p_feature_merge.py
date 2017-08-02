@@ -55,11 +55,11 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
                                                     version=relation_version))
     raw_df = p2p_df.join(
         static_df,
-        static_df.company_name == p2p_df.company_name,
+        static_df.bbd_qyxx_id == p2p_df.bbd_qyxx_id,
         'left_outer'
     ).join(
         dynamic_df,
-        dynamic_df.company_name == p2p_df.company_name,
+        dynamic_df.bbd_qyxx_id == p2p_df.bbd_qyxx_id,
         'left_outer'
     ).select(
         p2p_df.bbd_qyxx_id

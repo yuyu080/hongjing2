@@ -231,7 +231,7 @@ def spark_data_flow():
         p2p_info_df.county,
         p2p_info_df.is_black
     ).dropDuplicates(
-        ['company_name']
+        ['bbd_qyxx_id']
     )
     return prd_p2p_feature_df
 

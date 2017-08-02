@@ -185,7 +185,7 @@ def spark_data_flow():
         nf_info_df.county,
         nf_info_df.is_black
     ).dropDuplicates(
-        ['company_name']
+        ['bbd_qyxx_id']
     )
     return prd_nf_feature_df
 

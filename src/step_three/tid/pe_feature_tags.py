@@ -215,6 +215,8 @@ def spark_data_flow():
         pe_info_df.city,
         pe_info_df.county,
         pe_info_df.is_black
+    ).dropDuplicates(
+        ['bbd_qyxx_id']
     )
     return prd_pe_feature_df
 

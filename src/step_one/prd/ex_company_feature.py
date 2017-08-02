@@ -190,7 +190,7 @@ def spark_data_flow(exchange_version):
         WHERE
         dt='{version}'
         '''.format(version=exchange_version)
-    ).dropDuplicates(['company_name'])
+    ).dropDuplicates(['bbd_qyxx_id'])
     udf_return_type = tp.FloatType()
     tid_df = exchange_df.select(
         'bbd_qyxx_id',

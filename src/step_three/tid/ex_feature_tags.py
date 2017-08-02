@@ -197,6 +197,8 @@ def spark_data_flow():
         ex_info_df.city,
         ex_info_df.county,
         ex_info_df.is_black
+    ).dropDuplicates(
+        ['bbd_qyxx_id']
     )
     return prd_ex_feature_df
 

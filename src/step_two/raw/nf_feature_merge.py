@@ -64,11 +64,11 @@ def spark_data_flow(static_version, dynamic_version):
 
     feature_df = static_df.join(
         dynamic_df,
-        static_df.company_name == dynamic_df.company_name,
+        static_df.bbd_qyxx_id == dynamic_df.bbd_qyxx_id,
         'left_outer'
     ).join(
         some_type_df,
-        some_type_df.company_name == static_df.company_name
+        some_type_df.bbd_qyxx_id == static_df.bbd_qyxx_id
     ).select(
         [static_df.bbd_qyxx_id, 
          static_df.company_name,

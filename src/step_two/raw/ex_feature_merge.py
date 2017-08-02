@@ -84,7 +84,7 @@ def ex_supplement_flow():
          "/{version}").format(path=IN_PATH_TWO,
                               version=RELATION_VERSION)
     ).dropDuplicates(
-        ['company_name']
+        ['bbd_qyxx_id']
     ).withColumn(
         'is_black', is_black_udf('company_name')
     )
@@ -97,6 +97,7 @@ def ex_supplement_flow():
          "/{version}").format(path=IN_PATH_THREE,
                               version=RELATION_VERSION)
     ).select(
+        'bbd_qyxx_id',
         'company_name',
         'total_score'
     ).cache()
@@ -107,7 +108,7 @@ def ex_supplement_flow():
     prd_nf_top_df = tid_nf_top_df.withColumn(
         'is_risk', is_risk_udf('company_name')
     ).dropDuplicates(
-        ['company_name']
+        ['bbd_qyxx_id']
     )
     
     #会员名单: dw.qyxg_ex_member_list
@@ -182,11 +183,11 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
     
     raw_df = ex_df.join(
         static_df,
-        static_df.company_name == ex_df.company_name,
+        static_df.bbd_qyxx_id == ex_df.bbd_qyxx_id,
         'left_outer'
     ).join(
         dynamic_df,
-        dynamic_df.company_name == ex_df.company_name,
+        dynamic_df.bbd_qyxx_id == ex_df.bbd_qyxx_id,
         'left_outer'
     ).join(
         ex_supplement_df,

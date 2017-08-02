@@ -214,7 +214,7 @@ def spark_data_flow():
         tid_wdzj_df.p2p_feature_20,
         tid_wdzj_df.p2p_feature_21
     ).dropDuplicates(
-        ['company_name', 'platform_name']
+        ['bbd_qyxx_id', 'platform_name']
     ).fillna(
         0
     )

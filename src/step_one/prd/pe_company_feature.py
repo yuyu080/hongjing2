@@ -263,7 +263,7 @@ def spark_data_flow(smjj_version):
         'integrity_info',
         'ifcareer_qualification',
         'application_othertype'
-    ).dropDuplicates(['company_name'])
+    ).dropDuplicates(['bbd_qyxx_id'])
 
     udf_return_type = tp.FloatType()
     prd_df = tid_df.select(
