@@ -269,12 +269,12 @@ def spark_data_flow(tid_old_version, tid_new_version):
     tid_new_rdd = tid_new_df.rdd    
         
     #最终计算流程
-    tid_new_rdd_2 = tid_new_rdd.map(lambda row: (row.a_name, row)) \
+    tid_new_rdd_2 = tid_new_rdd.map(lambda row: (row.a, row)) \
         .groupByKey() \
         .repartition(600) \
         .filter(lambda r: len(r[1].data) <= 150000) \
         .cache()
-    tid_old_rdd_2 = tid_old_rdd.map(lambda row: (row.a_name, row)) \
+    tid_old_rdd_2 = tid_old_rdd.map(lambda row: (row.a, row)) \
         .groupByKey() \
         .repartition(600) \
         .filter(lambda r: len(r[1].data) <= 150000) \
@@ -292,7 +292,7 @@ def spark_data_flow(tid_old_version, tid_new_version):
     ).mapValues(
         get_dynamic_risk
     ).map(
-        lambda (k, v): dict({'company_name': k}, **v)
+        lambda (k, v): dict({'bbd_qyxx_id': k}, **v)
     ).map(
         lambda data: json.dumps(data, ensure_ascii=False)
     )

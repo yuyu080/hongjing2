@@ -106,13 +106,13 @@ def spark_data_flow(tid_old_version, tid_new_version):
          "common_static_feature_distribution_v2/"
          "{version}").format(path=IN_PATH,
                              version=tid_old_version))
-    feature_old_rdd = tid_old_df.rdd.map(lambda r: (r.company_name, r))
+    feature_old_rdd = tid_old_df.rdd.map(lambda r: (r.bbd_qyxx_id, r))
     tid_new_df = spark.read.json(
         ("{path}/"
          "common_static_feature_distribution_v2/"
          "{version}").format(path=IN_PATH,
                              version=tid_new_version))
-    feature_new_rdd = tid_new_df.rdd.map(lambda r: (r.company_name, r))
+    feature_new_rdd = tid_new_df.rdd.map(lambda r: (r.bbd_qyxx_id, r))
         
     #最终计算流程
     dynamic_risk_data = feature_old_rdd.join(
@@ -120,7 +120,7 @@ def spark_data_flow(tid_old_version, tid_new_version):
     ).mapValues(
         get_dynamic_risk
     ).map(
-        lambda (k, v): dict({'company_name': k}, **v)
+        lambda (k, v): dict({'bbd_qyxx_id': k}, **v)
     ).map(
         lambda data: json.dumps(data, ensure_ascii=False)
     )
