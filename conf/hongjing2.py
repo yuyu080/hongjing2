@@ -105,7 +105,7 @@ CIRCXZCF_VERSION = 20170718
 #dw.qyxx_fzjg_extend
 FZJG_VERSION = 20170718
 #dw.qyxg_leijinrong_blacklist
-BLACK_VERSION = 20170802
+BLACK_VERSION = 20170803
 #dw.qyxx_state_owned_enterprise_background
 STATE_OWNED_VERSION = 20170718
 
