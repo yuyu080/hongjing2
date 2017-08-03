@@ -13,6 +13,9 @@ import sys
 
 import MySQLdb
 import configparser
+
+from pyspark.sql import Window
+from pyspark.sql.functions import row_number
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 from pyspark.sql import functions as fun
@@ -114,6 +117,13 @@ def spark_data_flow():
         'join_date', get_join_date_udf('platform_state')
     )
     
+    
+    window = Window.partitionBy(
+        "bbd_qyxx_id"
+    ).orderBy(
+        tid_df.is_black.desc()
+    )
+    
     prd_df = tid_df.select(
         tid_df.bbd_qyxx_id.alias('id'),
         tid_df.company_name.alias('company'),
@@ -125,11 +135,12 @@ def spark_data_flow():
         tid_df.city,
         tid_df.county.alias('area'),
         fun.current_timestamp().alias('gmt_create'),
-        fun.current_timestamp().alias('gmt_update')
+        fun.current_timestamp().alias('gmt_update'),
+        row_number().over(window).alias('rank')
+    ).where(
+        'rank == 1'    
     ).fillna(
         {'city': u'无', 'area': u'无', 'province': u'无'}
-    ).dropDuplicates(
-        ['id']
     )
 
     return prd_df
