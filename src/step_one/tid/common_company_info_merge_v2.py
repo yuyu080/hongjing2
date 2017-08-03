@@ -984,6 +984,7 @@ def prd_spark_data_flow():
         'is_common_address'
     ).dropDuplicates(
         ['bbd_qyxx_id']
+    ).cache(
     )
 
     #2.3：根据样本列表构建属性图
@@ -1003,7 +1004,7 @@ def prd_spark_data_flow():
         filter_company_type_udf(sample_df.company_type)
     ).join(
         tid_df,
-        fun.trim(tid_df.a) == fun.trim(sample_df.bbd_qyxx_id),
+        tid_df.a == sample_df.bbd_qyxx_id,
         'left_outer'
     ).select(
         'a', 'b', 'c',
