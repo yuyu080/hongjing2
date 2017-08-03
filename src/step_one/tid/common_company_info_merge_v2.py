@@ -889,19 +889,19 @@ def raw_spark_data_flow():
     os.system(
         "hadoop fs -rmr "
         "{path}/*".format(path=TMP_PATH))
-    all_company_address_df.repartition(10).write.parquet(
+    all_company_address_df.repartition(500).write.parquet(
         "{path}/"
         "all_company_address_df/{version}".format(version=RELATION_VERSION,
                                                   path=TMP_PATH))
-    black_address_df.repartition(10).write.parquet(
+    black_address_df.repartition(500).write.parquet(
         "{path}/"
         "black_address_df/{version}".format(version=RELATION_VERSION,
                                             path=TMP_PATH))
-    tid_company_info_df.repartition(10).write.parquet(
+    tid_company_info_df.repartition(500).write.parquet(
         "{path}/"
         "tid_company_info_df/{version}".format(version=RELATION_VERSION,
                                                path=TMP_PATH))
-    tid_df.repartition(10).write.parquet(
+    tid_df.repartition(500).write.parquet(
         "{path}/"
         "tid_df/{version}".format(version=RELATION_VERSION,
                                   path=TMP_PATH))
@@ -1138,7 +1138,7 @@ def prd_spark_data_flow():
         "{version}".format(version=RELATION_VERSION,
                            path=OUT_PATH))
     
-    tid_company_merge_df.repartition(10).write.parquet(
+    tid_company_merge_df.repartition(30).write.parquet(
         "{path}/"
         "common_company_info_merge_v2/"
         "{version}".format(version=RELATION_VERSION,
@@ -1157,11 +1157,11 @@ def get_spark_session():
     conf.setMaster('yarn-client')
     conf.set("spark.yarn.am.cores", 15)
     conf.set("spark.executor.memory", "60g")
-    conf.set("spark.executor.instances", 20)
+    conf.set("spark.executor.instances", 25)
     conf.set("spark.executor.cores", 10)
     conf.set("spark.python.worker.memory", "3g")
-    conf.set("spark.default.parallelism", 1500)
-    conf.set("spark.sql.shuffle.partitions", 1500)
+    conf.set("spark.default.parallelism", 3000)
+    conf.set("spark.sql.shuffle.partitions", 3000)
     conf.set("spark.broadcast.blockSize", 1024)
     conf.set("spark.sql.crossJoin.enabled", True)
     conf.set("spark.executor.extraJavaOptions",
