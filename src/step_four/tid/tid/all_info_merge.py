@@ -252,7 +252,8 @@ def spark_data_flow(tidversion):
         tid_info_merge.is_high_company.alias('b_is_high_company'),
         tid_info_merge.is_leijinrong.alias('b_is_leijinrong'),
         tid_info_merge.enterprise_status.alias('b_estatus'),
-        tid_info_merge.lawsuit_num.alias('b_lending')
+        tid_info_merge.lawsuit_num.alias('b_lending'),
+        tid_info_merge.company_province.alias('b_company_province')
     )
     
     tid_relation_4_df = tid_relation_3_df.join(
@@ -273,6 +274,7 @@ def spark_data_flow(tidversion):
         'b_zgcpwsw', 'b_bgxx', 'b_address',
         'b_is_black_company', 'b_is_high_company',
         'b_is_leijinrong', 'b_estatus', 'b_lending',
+        'b_company_province',
         tid_info_merge.dishonesty_num.alias('c_dishonesty'),
         tid_info_merge.zhixing_num.alias('c_zhixing'),
         tid_info_merge.xzcf_num.alias('c_xzcf'),
@@ -286,7 +288,8 @@ def spark_data_flow(tidversion):
         tid_info_merge.is_high_company.alias('c_is_high_company'),
         tid_info_merge.is_leijinrong.alias('c_is_leijinrong'),
         tid_info_merge.enterprise_status.alias('c_estatus'),
-        tid_info_merge.lawsuit_num.alias('c_lending')    
+        tid_info_merge.lawsuit_num.alias('c_lending'),
+        tid_info_merge.company_province.alias('c_company_province')
     )
 
     return tid_relation_4_df
