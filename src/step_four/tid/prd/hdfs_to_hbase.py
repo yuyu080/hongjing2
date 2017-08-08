@@ -17,11 +17,14 @@ from pyspark.conf import SparkConf
 
 def get_all_feature(row):
     try:
-        row_dict = row.asDict()
-        return [u'\t'.join([row_dict['bbd_qyxx_id'], 
+        row_key, row_dict = row[0], row[1]
+        return [u'\t'.join([row_key, 
                             k, 
-                            json.dumps(v, 
-                                       ensure_ascii=False)]) 
+                            json.dumps(v, ensure_ascii=False) 
+                            if k != 'bbd_qyxx_id' 
+                            and k != 'company_name' 
+                            else v
+                            ]) 
                 for k, v in row_dict.iteritems()]
     except:
         return []
@@ -51,12 +54,16 @@ def get_spark_session():
     return spark
     
 def spark_data_flow():    
-    prd_df = spark.read.json(
+    prd_df = spark.sparkContext.textFile(
         ("{path}/"
          "all_company_feature/"
          "{version}").format(path=IN_PATH,
                              version=RELATION_VERSION)
-    ).rdd.flatMap(
+    ).map(
+        json.loads
+    ).map(
+        lambda x: (x['bbd_qyxx_id'], x)
+    ).flatMap(
         get_all_feature
     ).coalesce(
         500
