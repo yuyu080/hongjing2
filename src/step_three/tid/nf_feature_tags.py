@@ -110,7 +110,7 @@ def get_tags(row):
                 0.01)) >= 1.:
             tags.append(u'关联方中自然人比例较高')
         if row['feature_21']['n']:
-            tags.append(u'二度内关联企业中地址相同公司较多')
+            tags.append(u'关联企业中存在地址相同公司')
         if (row['feature_23']['b_1'] + row['feature_23']['b_2'] + 
             row['feature_23']['b_3']):
             tags.append(u'关联方中存在黑名单企业')
