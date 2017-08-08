@@ -91,12 +91,14 @@ def change_prob_score(row, quantile_one, quantile_two):
     elif raw_prob < quantile_two:
         score = sigmoid(raw_prob*50000) * 30. / sigmoid(quantile_two*50000) 
     
-    #第二次变换，真是SB
+    #第二次变换
     #result = score
     if 50 < score <= 51:
-        result = (sigmoid(score / 100.) * 100 -62) * 15 / 10. + 50
+        #result = (sigmoid(score / 100.) * 100 -62) * 15 / 10. + 50
+        result = sigmoid(score - 50) * 100.
     elif 51 < score <= 90:
-        result = (sigmoid(score / 100.) * 100 -62) * 25 / 10. + 65
+        #result = (sigmoid(score / 100.) * 100 -62) * 25 / 10. + 65
+        result = (90 - sigmoid(1) * 100.) * score / 39 + 51
     else:
         result = score
     
