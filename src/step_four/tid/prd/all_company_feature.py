@@ -11,7 +11,7 @@ import os
 
 import json
 from operator import itemgetter
-from collections import OrderedDict
+from collections import OrderedDict, Counter
 
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
@@ -76,7 +76,10 @@ class FeatureConstruction(object):
                     dishonesty=row.b_dishonesty,
                     jyyc=row.b_jyyc,
                     address=row.b_address,
-                    estatus=row.b_estatus
+                    estatus=row.b_estatus,
+                    province=row.b_company_province,
+                    high_relation=row.b_high_relation_num,
+                    black_relation=row.b_black_relation_num
                 ))  for row in relations] + [(
                 row.c, 
                 dict(
@@ -96,7 +99,10 @@ class FeatureConstruction(object):
                     dishonesty = row.c_dishonesty,
                     jyyc = row.c_jyyc,
                     address = row.c_address,
-                    estatus = row.c_estatus
+                    estatus = row.c_estatus,
+                    province=row.c_company_province,
+                    high_relation=row.c_high_relation_num,
+                    black_relation=row.c_black_relation_num
                 )) for row in relations]
         
         if is_directed == 1:
@@ -128,7 +134,9 @@ class FeatureConstruction(object):
             for each_document in document_types:
                 each_list = []
                 for node, attr in cls.DIG.nodes_iter(data=True):
-                    if attr['is_human'] == 0  and attr['distance'] == distance:                   
+                    if (attr['is_human'] == 0  
+                            and attr['distance'] <= distance
+                            and node != cls.tarcompany):
                         if attr[each_document]:
                             each_list.append(attr['name'])
                 all_array.append(each_list)
@@ -148,7 +156,9 @@ class FeatureConstruction(object):
             #处理某一个distance不存在节点的情况
             all_array.append([0]*len(document_types))            
             for node, attr in cls.DIG.nodes_iter(data=True):
-                if attr['is_human'] == 0  and attr['distance'] == distance:
+                if (attr['is_human'] == 0 
+                        and attr['distance'] <= distance  
+                        and node != cls.tarcompany):
                     each_array = map(lambda x: 1 if x else 0, 
                                      [attr[each_document] 
                                      for each_document in document_types])
@@ -169,22 +179,22 @@ class FeatureConstruction(object):
         matrx = dict()
         
         xgxx_type = ['ktgg', 'zgcpwsw', 'rmfygg', 
-                     'lending', 'xzcf', 'zhixing', 
-                     'dishonesty', 'jyyc', 'bgxx',
-                     'is_black', 'is_high', 'is_new_finance',
-                     'estatus']
+                             'lending', 'xzcf', 'zhixing', 
+                             'dishonesty', 'jyyc', 'bgxx',
+                             'is_black', 'is_high', 'is_new_finance',
+                             'estatus']
         
         xgxx_type_num = ['ktgg_num', 'zgcpwsw_num', 'rmfygg_num', 
-                         'lending_num', 'xzcf_num', 'zhixing_num', 
-                         'dishonesty_num', 'jyyc_num', 'bgxx_num',
-                         'black_num', 'high_risk_num', 'new_finance_num',
-                         'estatus_num']
+                             'lending_num', 'xzcf_num', 'zhixing_num', 
+                             'dishonesty_num', 'jyyc_num', 'bgxx_num',
+                             'black_num', 'high_risk_num', 'new_finance_num',
+                             'estatus_num']
 
         xgxx_type_name = ['ktgg_name', 'zgcpwsw_name', 'rmfygg_name', 
-                          'lending_name', 'xzcf_name', 'zhixing_name', 
-                          'dishonesty_name', 'jyyc_name', 'bgxx_name',
-                          'black_name', 'high_risk_name', 'new_finance_name',
-                          'estatus_name']
+                             'lending_name', 'xzcf_name', 'zhixing_name', 
+                             'dishonesty_name', 'jyyc_name', 'bgxx_name',
+                             'black_name', 'high_risk_name', 'new_finance_name',
+                             'estatus_name']
         
         for each_distance in xrange(1, 4):
             xgxx_name_list = get_certain_distance_name_info(each_distance,
@@ -192,23 +202,21 @@ class FeatureConstruction(object):
             
             xgxx_num_list = get_certain_distance_add_info(each_distance, 
                                                           xgxx_type)
-            matrx[each_distance] = dict(
-                zip([get_feature_name(each_distance, each_name) 
-                    for each_name in xgxx_type_num], xgxx_num_list)+
-                zip([get_feature_name(each_distance, each_name) 
-                    for each_name in xgxx_type_name], xgxx_name_list))
+            matrx[each_distance] = dict(zip([get_feature_name(each_distance, each_name) 
+                                             for each_name in xgxx_type_num], 
+                                             xgxx_num_list))
             
         return reduce(lambda a,b: dict(a, **b), matrx.values())
 
     
-    @__fault_tolerant
+    @classmethod
     def get_feature_1(cls):
         '''
         关联方统计特征
         '''
         return cls.get_feature_xgxx()
 
-    @__fault_tolerant
+    @classmethod
     def get_feature_2(cls):
         '''
         目标公司特征
@@ -246,8 +254,6 @@ class FeatureConstruction(object):
         if get_property_num('bgxx'):
             for bgxx_name, bgxx_num in get_property_num('bgxx').iteritems():
                 bgxx_dict[get_bgxx_symbol(bgxx_name)] += int(bgxx_num)
-                
-        out_degree = cls.DIG.out_degree(cls.tarcompany)
         
         return dict(
             tar_lending_num = get_property_num('lending'),
@@ -258,10 +264,12 @@ class FeatureConstruction(object):
             tar_ktgg_num = get_property_num('ktgg'),
             tar_rmfygg_num = get_property_num('rmfygg'),
             tar_zgcpwsw_num = get_property_num('zgcpwsw'),
-            tar_ssws_num = get_property_num('ktgg') + \
-                           get_property_num('rmfygg') + \
-                           get_property_num('zgcpwsw'),
-            tar_out_drgree=out_degree if out_degree else 0,
+            tar_ssws_num = (
+              get_property_num('ktgg') + 
+              get_property_num('rmfygg') + 
+              get_property_num('zgcpwsw')             
+            ),
+            tar_out_drgree=cls.DIG.out_degree(cls.tarcompany),
             tar_bgxx_total_num=sum(bgxx_dict.values()),
             tar_bgxx_fddbr_num=bgxx_dict['fddbr'],
             tar_bgxx_gd_num=bgxx_dict['gd'],
@@ -270,7 +278,7 @@ class FeatureConstruction(object):
             tar_bgxx_jyfw_num=bgxx_dict['jyfw']
         )
         
-    @__fault_tolerant
+    @classmethod
     def get_feature_3(cls):
         '''
         关联方存在诉讼文书的企业数
@@ -287,30 +295,30 @@ class FeatureConstruction(object):
             return sum(
                 [get_num([attr['ktgg'], attr['rmfygg'], attr['zgcpwsw']])
                  for node, attr in cls.DIG.nodes_iter(data=True)
-                 if attr['distance'] == distance]
+                 if attr['distance'] <= distance
+                 and node != cls.tarcompany]
             )
         
         def get_certain_distance_name(distance):
             return [
                 attr['name']
                 for node, attr in cls.DIG.nodes_iter(data=True)
-                if attr['distance'] == distance
+                if attr['distance'] <= distance
+                and node != cls.tarcompany
                 and (attr['ktgg'] or attr['rmfygg'] or attr['zgcpwsw'])
             ]
         
         sswx_num = {'{0}d_sswx_num'.format(each_distance): 
-                    get_certain_distance_num(each_distance) 
-                    for each_distance in range(1, 4)}
+                                get_certain_distance_num(each_distance) 
+                                for each_distance in range(1, 4)}
         
         sswx_name = {'{0}d_sswx_name'.format(each_distance): 
-                     get_certain_distance_name(each_distance) 
-                     for each_distance in range(1, 4)}
-        
-        sswx_num.update(sswx_name)
+                                get_certain_distance_name(each_distance) 
+                                for each_distance in range(1, 4)}
         
         return sswx_num
             
-    @__fault_tolerant
+    @classmethod
     def get_feature_4(cls):
         '''
         关联方与目标企业利益一致的企业数
@@ -330,30 +338,39 @@ class FeatureConstruction(object):
                 return True if is_similarity > 0 else False
             except:
                 return False
+
+        def get_certain_distance_info(distance, tar_company, return_name): 
+            some_relation_set = [
+                attr['name'] 
+                for node, attr in cls.DIG.nodes_iter(data=True) 
+                if attr['distance'] <= distance
+                and node != cls.tarcompany]
+            
+            common_interests_name = [
+                node_name
+                for node_name in some_relation_set 
+                if is_similarity(tar_company_frag, node_name)]
+            
+            return common_interests_name if return_name else len(common_interests_name)
             
         #目标公司的名称frag
         #tar_company = cls.resultiterable.data[0].a_name
         tar_company_frag = cls.resultiterable.data[0].a_namefrag
+        
         #三度以内，所有关联方的节点集合(不包含自身)
-        relation_set = [
-                attr['name'] 
-                for node, attr in cls.DIG.nodes_iter(data=True) 
-                if attr['distance'] <= 3
-                and node != cls.tarcompany]
-
-        common_interests_name = [
-            node_name
-            for node_name in relation_set 
-            if is_similarity(tar_company_frag, node_name)]
+        same_common_interests_num = {
+            '{0}d_common_interests_num'.format(each_distance): 
+            get_certain_distance_info(each_distance, tar_company_frag, False)
+            for each_distance in range(1, 4)}
         
-        common_interests_num = len(common_interests_name)
+        cls.same_common_interests_name = {
+            '{0}d_common_interests_name'.format(each_distance): 
+            get_certain_distance_info(each_distance, tar_company_frag, True) 
+            for each_distance in range(1, 4)}
 
-        return dict(
-            tar_common_interests_name=common_interests_name,
-            tar_common_interests_num=common_interests_num
-        )
+        return same_common_interests_num
         
-    @__fault_tolerant
+    @classmethod
     def get_feature_5(cls):
         '''
         关联方与目标公司地址相同
@@ -362,21 +379,179 @@ class FeatureConstruction(object):
             return [
                 attr['name'] if return_name else 1
                 for node, attr in cls.DIG.nodes_iter(data=True)
-                if attr['distance'] == distance
-                and cls.DIG.node[cls.tarcompany]['address'] == attr['distance']
-            ]
+                if attr['distance'] <= distance
+                and cls.DIG.has_node(cls.tarcompany)
+                and cls.DIG.node[cls.tarcompany]['address'] == attr['address']]
         
         same_address_num = {'{0}d_same_address_num'.format(each_distance): 
-                            get_certain_distance_info(each_distance, False) 
-                            for each_distance in range(1, 4)}
+                                                sum(get_certain_distance_info(each_distance, False))
+                                                for each_distance in range(1, 4)}
         
-        same_address_name = {'{0}d_same_address_name'.format(each_distance): 
-                             get_certain_distance_info(each_distance, True) 
-                             for each_distance in range(1, 4)}
-        
-        same_address_num.update(same_address_name)
+        cls.same_address_name = {'{0}d_same_address_name'.format(each_distance): 
+                                                get_certain_distance_info(each_distance, True) 
+                                                for each_distance in range(1, 4)}
         
         return same_address_num
+    
+    @classmethod
+    def get_feature_6(cls):
+        '''
+        关联方1/2/3度，按标签分类统计
+        '''
+        def get_certain_node_info(node):
+            '''
+            获取某个节点的相关信息
+            '''
+            def get_some_attr(attr_name):
+                value = cls.DIG.node[node][attr_name]
+                return value if value else 0
+            
+            bgxx_info=get_some_attr('bgxx')
+            if bgxx_info:
+                bgxx_num = sum(map(int, filter(None, bgxx_info.values())))
+            else:
+                bgxx_num = bgxx_info
+            
+            return dict(
+                lending_num=get_some_attr('lending'),
+                dishonesty_num=get_some_attr('dishonesty'),
+                zhixing_num=get_some_attr('zhixing'),
+                xzcf_num=get_some_attr('xzcf'),
+                jyyc_num=get_some_attr('jyyc'),
+                ssws_num=(
+                    get_some_attr('ktgg') + 
+                    get_some_attr('rmfygg') + 
+                    get_some_attr('zgcpwsw')                
+                ),
+                bgxx_num=bgxx_num,
+                out_degree=cls.DIG.out_degree(node),
+                black_relation_num=get_some_attr('black_relation'),
+                high_relation_num=get_some_attr('high_relation')
+            )
+            
+        
+        def get_certain_distance_info(distance):
+            '''
+            获取某度内的节点企业信息:
+            
+            1d_relation_info: {
+             'total':{
+                'f82c6505b4844c2ab58a345253ca435b'：{'lending_num': 2, 
+                                                    'zhixing_num': 0, 
+                                                    'ssws_num': 8}
+                '490564e547f156bb9cd4835d3bd1826e': {...}
+                ...
+                }
+             'black'：{
+                'f82c6505b4844c2ab58a345253ca435b'：{'lending_num': 2, 
+                                                    'zhixing_num': 0, 
+                                                    'ssws_num': 8}
+                '490564e547f156bb9cd4835d3bd1826e': {...}
+                ...
+                }
+            }
+            2d_relation_info
+            3d_relation_info
+            
+            total 全部关联方,
+            black 黑名单关联方,
+            high_risk 高风险关联方,
+            new_finance 新金融关联方,
+            common_interests 利益一致关联方,
+            common_address 地址相同关联方,
+            estate 注吊销关联方的
+            '''
+            def get_special_node_info(attr_name):
+                return {
+                node: get_certain_node_info(node)
+                for node, attr in cls.DIG.nodes_iter(data=True)
+                if attr['distance'] <= distance
+                and node != cls.tarcompany
+                and attr[attr_name]
+            }
+            
+            # 只需要返回1度的全部企业
+            if distance == 1:
+                total = {
+                    node: get_certain_node_info(node)
+                    for node, attr in cls.DIG.nodes_iter(data=True)
+                    if attr['distance'] <= distance
+                    and node != cls.tarcompany
+                }
+            else:
+                total = {}
+                
+            black = get_special_node_info('is_black')
+            high_risk = get_special_node_info('is_high')
+            new_finance = get_special_node_info('is_new_finance')
+            estate = get_special_node_info('estatus')
+            
+            #特殊处理, 获取利益一致公司名单
+            certain_nodes_name = cls.same_common_interests_name[
+                '{0}d_common_interests_name'.format(distance)]
+            common_interests = {
+                node: get_certain_node_info(node)
+                for node, attr in cls.DIG.nodes_iter(data=True)
+                if attr['distance'] <= distance
+                and node != cls.tarcompany
+                and attr['name'] in certain_nodes_name
+            }
+            
+            #特殊处理，获取地址相同公司名单
+            certain_nodes_name = cls.same_address_name[
+                '{0}d_same_address_name'.format(distance)]
+            common_address = {
+                node: get_certain_node_info(node)
+                for node, attr in cls.DIG.nodes_iter(data=True)
+                if attr['distance'] <= distance
+                and node != cls.tarcompany
+                and attr['name'] in certain_nodes_name
+            }
+            
+            return dict(
+                total=total,
+                black=black,
+                high_risk=high_risk,
+                new_finance=new_finance,
+                common_interests=common_interests,
+                common_address=common_address,
+                estate=estate
+            )
+        
+        xgxx_num_list = {
+            '{0}d_relation_info'.format(each_distance): 
+                get_certain_distance_info(each_distance)
+            for each_distance in range(1, 4)
+        }
+    
+        return xgxx_num_list
+    
+    @classmethod
+    def get_feature_7(cls):
+        '''
+        关联方聚集地
+        '''
+        
+        def get_certain_distance_info(distance):
+            province_distribution = [
+                attr['province']
+                for ndoe, attr in cls.DIG.nodes_iter(data=True)
+                if attr['distance'] <= distance
+                and attr['province']
+            ]
+            cont = Counter(province_distribution)
+            province_info = cont.most_common(3)
+            
+            return map(itemgetter(0), province_info)
+            
+        result = {
+            '1': get_certain_distance_info(1),
+            '2': get_certain_distance_info(2),
+            '3': get_certain_distance_info(3)
+        }
+        
+        return result
+        
     
     @classmethod
     def get_some_feature(cls, resultiterable, feature_nums):
@@ -389,11 +564,10 @@ class FeatureConstruction(object):
             eval('cls.get_feature_{0}()'.format(feature_index))
             for feature_index in feature_nums]
         feature_list.append(dict([('bbd_qyxx_id', cls.tarcompany)]))
-        feature_list.append(dict([('company_name', 
-                                   cls.resultiterable.data[0].a_name)]))
+        feature_list.append(dict([('company_name', cls.resultiterable.data[0].a_name)]))
         
         return json.dumps(reduce(lambda a,b: dict(a, **b), feature_list), 
-                          ensure_ascii=False)
+                                      ensure_ascii=False)
     
 def get_spark_session():   
     conf = SparkConf()
@@ -420,9 +594,50 @@ def get_spark_session():
     return spark     
     
 def spark_data_flow(tidversion):
+    
     tid_df = spark.read.parquet(
         "{path}/all_info_merge/{version}".format(path=IN_PATH,
                                                  version=tidversion))
+    tid_add_df = spark.read.parquet(
+        "{path}/som_company_relation_info/{version}".format(path=IN_PATH,
+                                                            version=tidversion)
+    ).cache()
+    
+    #在tid_df的基础上增加两列
+    tid_df_cols = tid_df.columns
+    tid_df_cols.remove('a')
+    tid_df_cols.insert(0, tid_df.a)
+    tid_df_cols.append(
+        tid_add_df.high_relation_company_num.alias('b_high_relation_num'))
+    tid_df_cols.append(
+        tid_add_df.black_relation_company_num.alias('b_black_relation_num'))
+    
+    
+    tid_df = tid_df.join(
+        tid_add_df,
+        tid_add_df.a == tid_df.b,
+        'left_outer'
+    ).select(
+        tid_df_cols
+    )
+    
+    #再增加两列
+    tid_df_cols = tid_df.columns
+    tid_df_cols.remove('a')
+    tid_df_cols.insert(0, tid_df.a)
+    tid_df_cols.append(
+        tid_add_df.high_relation_company_num.alias('c_high_relation_num'))
+    tid_df_cols.append(
+        tid_add_df.black_relation_company_num.alias('c_black_relation_num'))
+    
+    tid_df = tid_df.join(
+        tid_add_df,
+        tid_add_df.a == tid_df.c,
+        'left_outer'
+    ).select(
+        tid_df_cols
+    )
+
     tid_rdd = tid_df.rdd
         
     #最终计算流程
@@ -440,21 +655,21 @@ def spark_data_flow(tidversion):
             try:
                 return func(*args)
             except:
-                return '{}'
+                return {}
         return wappen
     
     @fault_tolerant
     def time_out(data):
         signal.signal(signal.SIGALRM, handler)
-        signal.alarm(1200)
+        signal.alarm(3000)
         result = FeatureConstruction.get_some_feature(
-            data,[_ for _ in range(1, 5)])
+            data,[_ for _ in range(1, 8)])
         signal.alarm(0)
         return result        
         
     feature_list = tid_rdd_2.mapValues(
         lambda data: FeatureConstruction.get_some_feature(
-            data,[_ for _ in range(1, 5)])
+            data,[_ for _ in range(1, 8)])
     ).map(
         itemgetter(1)
     )
@@ -472,12 +687,11 @@ def run():
          "all_company_feature"
          "/{version}").format(path=OUT_PATH, 
                               version=RELATION_VERSION))
-    pd_df.coalesce(500).saveAsTextFile(
+    pd_df.coalesce(600).saveAsTextFile(
         ("{path}/"
         "all_company_feature"
         "/{version}").format(path=OUT_PATH, 
-                             version=RELATION_VERSION),
-        compressionCodecClass='org.apache.hadoop.io.compress.GzipCodec')
+                             version=RELATION_VERSION))
     
 
 if __name__ == '__main__':  
