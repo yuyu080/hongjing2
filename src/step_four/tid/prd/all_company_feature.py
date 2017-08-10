@@ -381,15 +381,16 @@ class FeatureConstruction(object):
                 for node, attr in cls.DIG.nodes_iter(data=True)
                 if attr['distance'] <= distance
                 and cls.DIG.has_node(cls.tarcompany)
+                and node != cls.tarcompany
                 and cls.DIG.node[cls.tarcompany]['address'] == attr['address']]
         
         same_address_num = {'{0}d_same_address_num'.format(each_distance): 
-                                                sum(get_certain_distance_info(each_distance, False))
-                                                for each_distance in range(1, 4)}
+                            sum(get_certain_distance_info(each_distance, False))
+                            for each_distance in range(1, 4)}
         
         cls.same_address_name = {'{0}d_same_address_name'.format(each_distance): 
-                                                get_certain_distance_info(each_distance, True) 
-                                                for each_distance in range(1, 4)}
+                                 get_certain_distance_info(each_distance, True) 
+                                 for each_distance in range(1, 4)}
         
         return same_address_num
     
@@ -545,9 +546,9 @@ class FeatureConstruction(object):
             return map(itemgetter(0), province_info)
             
         result = {
-            '1': get_certain_distance_info(1),
-            '2': get_certain_distance_info(2),
-            '3': get_certain_distance_info(3)
+            '1d_gather_place': get_certain_distance_info(1),
+            '2d_gather_place': get_certain_distance_info(2),
+            '3d_gather_place': get_certain_distance_info(3)
         }
         
         return result
@@ -564,10 +565,11 @@ class FeatureConstruction(object):
             eval('cls.get_feature_{0}()'.format(feature_index))
             for feature_index in feature_nums]
         feature_list.append(dict([('bbd_qyxx_id', cls.tarcompany)]))
-        feature_list.append(dict([('company_name', cls.resultiterable.data[0].a_name)]))
+        feature_list.append(dict([('company_name', 
+                                   cls.resultiterable.data[0].a_name)]))
         
         return json.dumps(reduce(lambda a,b: dict(a, **b), feature_list), 
-                                      ensure_ascii=False)
+                          ensure_ascii=False)
     
 def get_spark_session():   
     conf = SparkConf()
