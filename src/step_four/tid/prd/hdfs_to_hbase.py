@@ -16,18 +16,16 @@ from pyspark.conf import SparkConf
 
 
 def get_all_feature(row):
-    try:
-        row_key, row_dict = row[0], row[1]
-        return [u'\t'.join([row_key, 
+    row_key, row_dict = row[0], row[1]
+    return [u'\t'.join([row_key, 
                             k, 
                             json.dumps(v, ensure_ascii=False) 
                             if k != 'bbd_qyxx_id' 
                             and k != 'company_name' 
                             else v
                             ]) 
-                for k, v in row_dict.iteritems()]
-    except:
-        return []
+            for k, v in row_dict.iteritems()]
+
 
 def get_spark_session():
     conf = SparkConf()
