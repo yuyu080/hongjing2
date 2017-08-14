@@ -133,62 +133,83 @@ def spark_data_flow(tidversion):
         basic_df.bbd_qyxx_id,
         basic_df.company_name,
         basic_df.enterprise_status,
-        basic_df.address
+        basic_df.address,
+        basic_df.company_province
     ).join(
         black_df,
-        'company_name',
+        black_df.company_name == basic_df.company_name,
         'left_outer'
     ).join(
         namefrag_df,
-        'company_name',
+        namefrag_df.company_name == basic_df.company_name,
         'left_outer'
     ).join(
         lawsuit_df,
-        'bbd_qyxx_id',
+        lawsuit_df.bbd_qyxx_id == basic_df.bbd_qyxx_id,
         'left_outer'
     ).join(
         tid_ljr_sample_df,
-        'bbd_qyxx_id',
+        tid_ljr_sample_df.bbd_qyxx_id == basic_df.bbd_qyxx_id,
         'left_outer'
     ).join(
         tid_all_company_info,
-        'bbd_qyxx_id',
+        tid_all_company_info.bbd_qyxx_id == basic_df.bbd_qyxx_id,
         'left_outer'
     ).join(
         bgxx_df,
-        'bbd_qyxx_id',
+        bgxx_df.bbd_qyxx_id == basic_df.bbd_qyxx_id,
         'left_outer'
     ).join(
         zgcpwsw_df,
-        'bbd_qyxx_id',
+        zgcpwsw_df.bbd_qyxx_id == basic_df.bbd_qyxx_id,
         'left_outer'
     ).join(
         rmfygg_df,
-        'bbd_qyxx_id',
+        rmfygg_df.bbd_qyxx_id == basic_df.bbd_qyxx_id,
         'left_outer'
     ).join(
         ktgg_df,
-        'bbd_qyxx_id',
+        ktgg_df.bbd_qyxx_id == basic_df.bbd_qyxx_id,
         'left_outer'
     ).join(
         jyyc_df,
-        'bbd_qyxx_id',
+        jyyc_df.bbd_qyxx_id == basic_df.bbd_qyxx_id,
         'left_outer'
     ).join(
         xzcf_df,
-        'bbd_qyxx_id',
+        xzcf_df.bbd_qyxx_id == basic_df.bbd_qyxx_id,
         'left_outer'
     ).join(
         zhixing_df,
-        'bbd_qyxx_id',
+        zhixing_df.bbd_qyxx_id == basic_df.bbd_qyxx_id,
         'left_outer'
     ).join(
         dishonesty_df,
-        'bbd_qyxx_id',
+        dishonesty_df.bbd_qyxx_id == basic_df.bbd_qyxx_id,
         'left_outer'
+    ).select(
+        basic_df.bbd_qyxx_id,
+        basic_df.company_name,
+        basic_df.enterprise_status,
+        basic_df.address,
+        'namefrag',
+        'dishonesty_num'
+        ,'zhixing_num'
+        ,'xzcf_num'
+        ,'jyyc_num'
+        ,'ktgg_num'
+        ,'rmfygg_num'
+        ,'zgcpwsw_num'
+        ,'bgxx_dict'
+        ,'is_black_company'
+        ,'is_high_company'
+        ,'is_leijinrong'
+        ,'lawsuit_num'
+        ,'company_province'
     ).dropDuplicates(
         ['bbd_qyxx_id']
-    ).cache()
+    ).cache(
+    )
 
     #构建属性图
     tid_relation_2_df = relation_df.join(
@@ -204,7 +225,7 @@ def spark_data_flow(tidversion):
         'bc_relation',
         'b_isperson',
         'c_isperson',
-        'a_name',
+        tid_info_merge.company_name.alias('a_name'),
         'b_name',
         'c_name',
         tid_info_merge.namefrag.alias('a_namefrag'),
