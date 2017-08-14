@@ -1,17 +1,13 @@
 [common]
 
 RELATION_VERSIONS = ["20170117", "20170221", "20170315", 
-                     "20170417", "20170518", "20170627",
-                     "20170718"]
+                     "20170417", "20170518", "20170627"]
 #dw.qyxg_wdzj
-WDZJ_VERSION_LIST = ['20170427', '20170521', '20170624',
-                     '20170718']
+WDZJ_VERSION_LIST = ['20170427', '20170521', '20170624']
 #dw.qyxg_exchange
-EXCHANGE_VERSION_LIST = ['20170427', '20170521', '20170624',
-                         '20170718']
+EXCHANGE_VERSION_LIST = ['20170427', '20170521', '20170624']
 #dw.qyxg_jijin_simu
-SMJJ_VERSION_LIST = ['20170427', '20170521', '20170624',
-                     '20170718']
+SMJJ_VERSION_LIST = ['20170427', '20170521', '20170624']
 
 
 [mysql]
@@ -71,43 +67,43 @@ OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/raw/
 [common_company_info]
 
 #dw.qyxx_basic
-BASIC_VERSION = 20170718
+BASIC_VERSION = 20170624
 #dw.qyxx_zhuanli
-ZHUANLI_VERSION = 20170718
+ZHUANLI_VERSION = 20170624
 #dw.xgxx_shangbiao
-SHANGBIAO_VERSION = 20170718
+SHANGBIAO_VERSION = 20170624
 #dw.domain_name_website_info
-DOMAIN_WEBSITE_VERSION = 20170718
+DOMAIN_WEBSITE_VERSION = 20170624
 #dw.qyxx_bgxx
-BGXX_VERSION = 20170718
+BGXX_VERSION = 20170624
 #dw.recruit
-RECRUIT_VERSION = 20170718
+RECRUIT_VERSION = 20170624
 #dw.shgy_zhaobjg
-ZHAOBIAO_VERSION = 20170718
+ZHAOBIAO_VERSION = 20170624
 #dw.shgy_zhongbjg
-ZHONGBIAO_VERSION = 20170718 
+ZHONGBIAO_VERSION = 20170624 
 #dw.ktgg
-KTGG_VERSION = 20170718
+KTGG_VERSION = 20170624
 #dw.zgcpwsw
-ZGCPWSW_VERSION = 20170718
+ZGCPWSW_VERSION = 20170624
 #dw.rmfygg
-RMFYGG_VERSION = 20170718
+RMFYGG_VERSION = 20170624
 #dw.Xzcf
-XZCF_VERSION = 20170718
+XZCF_VERSION = 20170624
 #dw.zhixing
-ZHIXING_VERSION = 20170718
+ZHIXING_VERSION = 20170624
 #dw.dishonesty
-DISHONESTY_VERSION = 20170718
+DISHONESTY_VERSION = 20170624
 #dw.qyxg_jyyc
-JYYC_VERSION = 20170718
+JYYC_VERSION = 20170624
 #dw.qyxg_circxzcf
-CIRCXZCF_VERSION = 20170718
+CIRCXZCF_VERSION = 20170624
 #dw.qyxx_fzjg_extend
-FZJG_VERSION = 20170718
+FZJG_VERSION = 20170624
 #dw.qyxg_leijinrong_blacklist
 BLACK_VERSION = 20170803
 #dw.qyxx_state_owned_enterprise_background
-STATE_OWNED_VERSION = 20170718
+STATE_OWNED_VERSION = 20170624
 
 OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/raw/
 
@@ -138,7 +134,7 @@ OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/prd/
 [ex_company_feature]
 
 #dw.qyxg_exchange
-EXCHANGE_VERSION = 20170718
+EXCHANGE_VERSION = 20170624
 
 
 
@@ -148,9 +144,9 @@ EXCHANGE_VERSION = 20170718
 [p2p_company_feature]
 
 #dw.qyxg_platform_data
-PLATFORM_VERSION = 20170718
+PLATFORM_VERSION = 20170624
 #dw.qyxg_wdzj
-WDZJ_VERSION = 20170718
+WDZJ_VERSION = 20170624
 
 
 
@@ -160,7 +156,7 @@ WDZJ_VERSION = 20170718
 [pe_company_feature]
 
 #dw.qyxg_jijin_simu
-SMJJ_VERSION = 20170718
+SMJJ_VERSION = 20170624
 
 
 
@@ -248,7 +244,7 @@ TMP_PATH = /user/antifraud/hongjing2/dataflow/step_four/tmp
 
 [to_mysql]
 
-IS_INTO_MYSQL = False
+IS_INTO_MYSQL = True
 OUT_PATH = /user/antifraud/hongjing2/dataflow/step_four/raw
 
 
