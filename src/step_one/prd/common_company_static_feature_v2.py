@@ -436,8 +436,6 @@ class FeatureConstruction(object):
                 default_result[get_bgxx_symbol(bgxx_name)] += int(bgxx_num)
             default_result['z'] = np.dot(default_result.values(), 
                                          [2, 1, 1, 1, 2, 0, 0])
-                
-        default_result.pop('c_6')
         
         return dict(default_result)
         
@@ -1002,10 +1000,12 @@ class FeatureConstruction(object):
         tar_company_frag = cls.resultiterable.data[0].a_namefrag
         #三度以内，所有关联方的节点集合(不包含自身)
         relation_set = [
-                attr['name'] 
-                for node, attr in cls.DIG.nodes_iter(data=True) 
-                if attr['distance'] <= 3]
-        #relation_set.remove(tar_company)
+            attr['name'] 
+            for node, attr in cls.DIG.nodes_iter(data=True) 
+            if attr['distance'] <= 3
+            and node != cls.tarcompany
+            and attr['is_human'] == 0]
+
         common_interests_list = [
             1 
             for node_name in relation_set 
