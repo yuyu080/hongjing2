@@ -293,10 +293,6 @@ def run():
         dt='{version}' 
         AND
         change_date <= '{relation_version}'
-        AND
-        (change_items like '%高管%'  OR change_items like '%法定代表人%'  OR 
-        change_items like '%股东%'  OR change_items like '%注册资本%'  OR
-        change_items like '%经营范围%' )
         GROUP BY 
         bbd_qyxx_id, change_items
         '''.format(version=BGXX_VERSION,
