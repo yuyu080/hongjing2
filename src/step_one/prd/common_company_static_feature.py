@@ -302,8 +302,6 @@ class FeatureConstruction(object):
                 default_result['z'] = 60
             elif 10 <= default_result['r']:
                 default_result['z'] = 100
-                
-        default_result.pop('c_6')
         
         return dict(default_result)
         
@@ -941,8 +939,10 @@ class FeatureConstruction(object):
         relation_set = [
                 attr['name'] 
                 for node, attr in cls.DIG.nodes_iter(data=True) 
-                if attr['distance'] <= 3]
-        #relation_set.remove(tar_company)
+                if attr['distance'] <= 3
+                and node != cls.tarcompany
+                and attr['is_human'] == 0]
+
         common_interests_list = [
             1 
             for node_name in relation_set 
