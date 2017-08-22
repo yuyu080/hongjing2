@@ -353,7 +353,7 @@ def spark_data_flow():
     get_data_version_udf = fun.udf(get_data_version, tp.StringType())
     prd_nf_df = tid_nf_df.join(
         raw_xgxx_info,
-        raw_xgxx_info.company_name == tid_nf_df.company_name,
+        raw_xgxx_info.bbd_qyxx_id == tid_nf_df.bbd_qyxx_id,
         'left_outer'
     ).join(
         basic_df,
