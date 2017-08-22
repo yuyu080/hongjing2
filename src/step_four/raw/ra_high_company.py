@@ -326,8 +326,8 @@ if __name__ == '__main__':
     conf = configparser.ConfigParser()    
     conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
 
-    #输入参数
-    VERSION_LIST = eval(conf.get('common', 'RELATION_VERSIONS'))
+    #输入参数,取最近6个月
+    VERSION_LIST = eval(conf.get('common', 'RELATION_VERSIONS'))[-6:]
     VERSION_LIST.sort()
     OLD_VERSION, NEW_VERSION = VERSION_LIST[-2:]
     
