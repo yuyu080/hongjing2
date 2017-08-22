@@ -338,18 +338,27 @@ def into_mysql(version):
                'ra_area_count.py',
                version)
     
-    result_five = execute_some_step('step_four', 'raw', 
-                                    'ra_gather_place.py',
-                                    version)
-    is_success(result_five, 'step_four', 'raw',
-               'ra_gather_place.py',
-               version)
+#==============================================================================
+#     result_five = execute_some_step('step_four', 'raw', 
+#                                     'ra_gather_place.py',
+#                                     version)
+#     is_success(result_five, 'step_four', 'raw',
+#                'ra_gather_place.py',
+#                version)
+#==============================================================================
 
     result_five = execute_some_step('step_four', 'raw', 
                                     'ra_black_white.py',
                                     version)
     is_success(result_five, 'step_four', 'raw',
                'ra_black_white.py',
+               version)
+    
+    result_six = execute_some_step('step_four', 'raw', 
+                                   'ra_area_chart.py',
+                                    version)
+    is_success(result_six, 'step_four', 'raw',
+               'ra_area_chart.py',
                version)
 
 if __name__ == '__main__':
@@ -366,5 +375,5 @@ if __name__ == '__main__':
     URL = conf.get('mysql', 'URL')
     PROP = eval(conf.get('mysql', 'PROP'))
 
-    run(is_history_back=False)
+    #run(is_history_back=False)
     into_mysql(NEW_VERSION)
