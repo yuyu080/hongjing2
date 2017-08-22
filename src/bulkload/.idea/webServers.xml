@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="b73f6325-6656-4efd-95ac-d1ab5c542c65" name="spark_python" url="http://10.28.52.29">
+        <fileTransfer host="10.28.52.29" port="51668" rootFolder="/data2/jiangsong/script/python" accessType="SFTP" password="dfdddff8dfcfdffadff8dfcbdfc5df98dfc9df8fdfcfdfdfdfebdf9cdffddfc5" username="jiangsong">
+          <advancedOptions>
+            <advancedOptions controlEncoding="UTF-8" dataProtectionLevel="Private" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

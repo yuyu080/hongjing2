@@ -1,0 +1,9 @@
+import java.util.Date
+import java.text.SimpleDateFormat
+
+flush 'hongjing_financial_20170518'
+disable 'hongjing_financial_20170518'
+drop 'hongjing_financial_20170518'
+create 'hongjing_financial_20170518',{NAME=>'features', COMPRESSION => 'snappy'}, SPLITS => ['0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z']
+put  'api_meta','hongjing_financial_v1','f1:table','hongjing_financial_20170518'
+exit
