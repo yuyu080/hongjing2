@@ -15,18 +15,6 @@ from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 
 
-def get_all_feature(row):
-    row_key, row_dict = row[0], row[1]
-    return [u'\t'.join([row_key, 
-                            k, 
-                            json.dumps(v, ensure_ascii=False) 
-                            if k != 'bbd_qyxx_id' 
-                            and k != 'company_name' 
-                            else v
-                            ]) 
-            for k, v in row_dict.iteritems()]
-
-
 def get_spark_session():
     conf = SparkConf()
     conf.setMaster('yarn-client')
@@ -52,25 +40,39 @@ def get_spark_session():
     return spark
     
 def spark_data_flow():    
-    prd_df = spark.sparkContext.textFile(
+    raw_rdd = spark.sparkContext.textFile(
         ("{path}/"
          "all_company_feature/"
          "{version}").format(path=IN_PATH,
                              version=RELATION_VERSION)
     ).map(
         json.loads
-    ).map(
-        lambda x: (x['bbd_qyxx_id'], x)
-    ).flatMap(
-        get_all_feature
+    ).cache()
+
+    data = raw_rdd.take(1)
+    columns = sorted(data[0].keys())
+        
+    def get_feature(row):
+        row_key = row['bbd_qyxx_id']
+        row_data = [json.dumps(row[k], ensure_ascii=False) 
+                 if k != 'bbd_qyxx_id' 
+                 and k != 'company_name' 
+                 else row[k]
+            for k in columns]
+        row_data.insert(0, row_key)
+        
+        return '\t'.join(row_data)
+         
+    prd_rdd = raw_rdd.map(
+        get_feature
     ).coalesce(
         500
     )
     
-    return prd_df
+    return prd_rdd
 
 def run():
-    tid_df = spark_data_flow()
+    prd_rdd = spark_data_flow()
     
     os.system(
         ("hadoop fs -rmr " 
@@ -79,7 +81,7 @@ def run():
          "/{version}").format(path=OUT_PATH, 
                               version=RELATION_VERSION))
     
-    tid_df.saveAsTextFile(
+    prd_rdd.saveAsTextFile(
         ("{path}/"
          "hdfs_to_hbase"
          "/{version}").format(path=OUT_PATH,
