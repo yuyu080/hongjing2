@@ -253,8 +253,8 @@ if __name__ == '__main__':
     conf = configparser.ConfigParser()    
     conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
     
-    #所有数据版本
-    VERSION_LIST = eval(conf.get('common', 'RELATION_VERSIONS'))
+    #所有数据版本,取最近6个月
+    VERSION_LIST = eval(conf.get('common', 'RELATION_VERSIONS'))[-6:]
 
     #结果存一份在HDFS，同时判断是否输出到mysql
     IN_PATH = conf.get('all_company_info', 'OUT_PATH')
