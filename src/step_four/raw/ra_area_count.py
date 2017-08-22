@@ -1119,8 +1119,8 @@ if __name__ == '__main__':
     conf = configparser.ConfigParser()    
     conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
     
-    #用于比较的两个数据版本
-    VERSION_LIST = eval(conf.get('common', 'RELATION_VERSIONS'))
+    #用于比较的两个数据版本,取最近6个月
+    VERSION_LIST = eval(conf.get('common', 'RELATION_VERSIONS'))[-6:]
     VERSION_LIST.sort()
     OLD_VERSION, NEW_VERSION = VERSION_LIST[-2:]
     
