@@ -96,6 +96,21 @@ def get_xgxx_change(old_xgxx, new_xgxx):
             for each_key in all_keys
         ]
         return  json.dumps(result, ensure_ascii=False)
+    elif new_xgxx:
+        new_xgxx_obj = json.loads(new_xgxx)
+        
+        all_keys = new_xgxx_obj.keys()
+        
+        #获取最终输出列表
+        result = [
+            {
+                "type": each_key,
+                "value": new_xgxx_obj[each_key],
+                "isupdate": 0
+            }
+            for each_key in all_keys
+        ]
+        return json.dumps(result, ensure_ascii=False)
     else:
         return u'无'
 
@@ -118,10 +133,19 @@ def get_risk_change(old_rank, new_rank):
     else:
         return 0
 
-def get_risk_sequence_version(iter_obj):
+def get_risk_sequence_version(iter_obj, VERSION_LIST):
     '''
     获取每个企业各个日期，每个子键的风险总分
     '''
+    def complemented_seq_data(each_time_seq, VERSION_LIST):
+        lately_data = each_time_seq[max(each_time_seq.keys())]
+        for each_version in VERSION_LIST:
+            if each_time_seq.has_key(each_version):    
+                continue
+            else:
+                each_time_seq[each_version] = lately_data
+        return each_time_seq
+    
     result = {}
     for each_obj in iter_obj:
         risk_with_version = each_obj[1]
@@ -132,7 +156,13 @@ def get_risk_sequence_version(iter_obj):
                 result[k][version] = v['total_score']
             else:
                 result[k] = {version: v['total_score']}
-    return json.dumps(result, ensure_ascii=False)
+                
+    #利用该公司最新一个日期的分数将VERSION_LIST中其余时间的分数填满
+    final_result = dict([(each_type, 
+                          complemented_seq_data(each_time_seq, VERSION_LIST))
+                        for each_type,each_time_seq in result.iteritems()])
+
+    return json.dumps(final_result, ensure_ascii=False)
 
 def get_true_id(iter_obj):
     '''
@@ -275,7 +305,8 @@ def tid_spark_data_flow():
         lambda (k, iter_obj): Row(
             company_name=k,
             bbd_qyxx_id=get_true_id(iter_obj),
-            risk_sequence_version=get_risk_sequence_version(iter_obj)
+            risk_sequence_version=get_risk_sequence_version(iter_obj,
+                                                            VERSION_LIST)
         )
     ).toDF(
     )
@@ -439,8 +470,8 @@ if __name__ == '__main__':
     conf = configparser.ConfigParser()    
     conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
     
-    #用于比较的两个数据版本
-    VERSION_LIST = eval(conf.get('common', 'RELATION_VERSIONS'))
+    #用于比较的两个数据版本,取最近6个月
+    VERSION_LIST = eval(conf.get('common', 'RELATION_VERSIONS'))[-6:]
     VERSION_LIST.sort()
     OLD_VERSION, NEW_VERSION = VERSION_LIST[-2:]
     
