@@ -58,7 +58,7 @@ def get_vectors(row):
                 row['feature_26']['c_1'],
                 0,
                 row['feature_26']['d_2'],
-            ]),        
+            ]),
             row['bbd_qyxx_id'],
             row['company_name'])
     else:
