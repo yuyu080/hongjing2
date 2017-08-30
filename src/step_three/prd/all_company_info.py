@@ -306,7 +306,7 @@ def spark_data_flow():
             common_static_feature_df_two.feature_6.getItem('c_3') +
             common_static_feature_df_two.feature_6.getItem('c_4') +
             common_static_feature_df_two.feature_6.getItem('c_5') +
-            common_static_feature_df_one.feature_6.getItem('c_6') 
+            common_static_feature_df_two.feature_6.getItem('c_6') 
             ).alias('gsbg'),
             (common_static_feature_df_two.feature_10.getItem('0').getItem('ktgg') +
             common_static_feature_df_two.feature_10.getItem('0').getItem('rmfygg') +
