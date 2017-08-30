@@ -4,6 +4,7 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
+--driver-memory 15g \
 all_data_preparation.py {version}
 '''
 
@@ -42,12 +43,12 @@ def get_spark_session():
     conf = SparkConf()
     conf.setMaster('yarn-client')
     conf.set("spark.yarn.am.cores", 7)
-    conf.set("spark.executor.memory", "25g")
+    conf.set("spark.executor.memory", "55g")
     conf.set("spark.executor.instances", 30)
-    conf.set("spark.executor.cores", 5)
+    conf.set("spark.executor.cores", 10)
     conf.set("spark.python.worker.memory", "2g")
-    conf.set("spark.default.parallelism", 1000)
-    conf.set("spark.sql.shuffle.partitions", 1000)
+    conf.set("spark.default.parallelism", 6000)
+    conf.set("spark.sql.shuffle.partitions", 6000)
     conf.set("spark.broadcast.blockSize", 1024)   
     conf.set("spark.shuffle.file.buffer", '512k')
     conf.set("spark.speculation", True)
@@ -116,10 +117,49 @@ def spark_data_flow(tidversion):
         source_degree <= 3
         AND
         destination_degree <= 3
-        '''.format(version='20170518')
+        '''.format(version=RELATION_VERSION)
     )
     
-    tid_relation_df = raw_relation_df.groupBy(
+    #剔除关联方条数大于10W的节点，不然要炸
+    tmp_df_1 = raw_relation_df.groupBy(
+        'a'    
+    ).count(
+    ).where(
+        'count < 100000'
+    )
+    
+    os.system(
+        ("hadoop fs -rmr " 
+         "{path}/* ").format(path=TMP_PATH)
+    )
+    tmp_df_1.coalesce(
+        100
+    ).write.parquet(
+         "{path}/"
+         "tmp_df_1/{version}".format(version=RELATION_VERSION,
+                                     path=TMP_PATH))
+    tmp_df_1 = spark.read.parquet(
+         "{path}/"
+         "tmp_df_1/{version}".format(version=RELATION_VERSION,
+                                     path=TMP_PATH))
+    
+    
+    tid_relation_df = tmp_df_1.join(
+        raw_relation_df,
+        raw_relation_df.a == tmp_df_1.a
+    ).select(
+        raw_relation_df.a,
+        raw_relation_df.b,
+        raw_relation_df.c,
+        raw_relation_df.b_degree,
+        raw_relation_df.c_degree,
+        raw_relation_df.bc_relation,
+        raw_relation_df.b_isperson,
+        raw_relation_df.c_isperson,
+        raw_relation_df.a_name,
+        raw_relation_df.b_name,
+        raw_relation_df.c_name
+    ).groupBy(
         ['a', 'b', 'c', 'a_name', 'b_name', 'c_name', 
          'b_degree', 'c_degree', 'b_isperson', 'c_isperson']
     ).agg(
@@ -161,9 +201,9 @@ def run():
          "{path}/"
          "all_relation"
          "/{version}").format(path=OUT_PATH, 
-                              version=RELATION_VERSION))    
+                              version=RELATION_VERSION))
     tid_relation_df.coalesce(
-        30
+        300
     ).write.parquet(
         "{path}/"
         "all_relation/"
@@ -183,6 +223,7 @@ if __name__ == '__main__':
     #输入参数
     IN_PATH = "/user/antifraud/hongjing2/dataflow/step_one/raw/"
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_four/tid/raw/"
+    TMP_PATH = "/user/antifraud/hongjing2/dataflow/step_four/tid/tmp/"
     
     spark = get_spark_session()
 
