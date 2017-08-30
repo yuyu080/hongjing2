@@ -33,10 +33,8 @@ class FeatureConstruction(object):
         def wappen(cls, *args, **kwargs):
             try:
                 return func(cls, *args, **kwargs)
-            except Exception, e:
-                return (
-                    "{func_name} has a errr : {excp}"
-                ).format(func_name=func.__name__, excp=e)
+            except Exception:
+                return {'error': 'error'}
         return wappen    
     
     @__fault_tolerant    
@@ -1111,7 +1109,7 @@ class FeatureConstruction(object):
                 node 
                 for node, attr in cls.DIG.nodes(data=True) 
                 if attr['distance'] == distance]
-            investment_dict = defaultdict(lambda : [])     
+            investment_dict = defaultdict(lambda : []) 
             
             if len(cls.DIG.edge) > 1:
                 for src_node, des_node, edge_attr in (
@@ -1143,7 +1141,7 @@ class FeatureConstruction(object):
                         all_date_density_dict[es_num] = [node]              
                 else:
                     continue
-            keys = all_date_density_dict.keys()        
+            keys = all_date_density_dict.keys()
             max_num = max(keys) if len(keys) > 0 else 0
             
             return max_num
@@ -1270,13 +1268,13 @@ def get_spark_session():
     conf = SparkConf()
     conf.setMaster('yarn-client')
     conf.set("spark.yarn.am.cores", 7)
-    conf.set("spark.executor.memory", "45g")
+    conf.set("spark.executor.memory", "70g")
     conf.set("spark.executor.instances", 20)
-    conf.set("spark.executor.cores", 9)
+    conf.set("spark.executor.cores", 15)
     conf.set("spark.python.worker.memory", "2g")
-    conf.set("spark.default.parallelism", 2000)
-    conf.set("spark.sql.shuffle.partitions", 2000)
-    conf.set("spark.broadcast.blockSize", 1024)   
+    conf.set("spark.default.parallelism", 3000)
+    conf.set("spark.sql.shuffle.partitions", 3000)
+    conf.set("spark.broadcast.blockSize", 1024)
     conf.set("spark.shuffle.file.buffer", '512k')
     conf.set("spark.speculation", True)
     conf.set("spark.speculation.quantile", 0.98)
@@ -1317,13 +1315,13 @@ def spark_data_flow(tidversion):
             try:
                 return func(*args)
             except:
-                return 'acer'
+                return {'error': 'error'}
         return wappen
 
     @fault_tolerant
     def time_out(data):
         signal.signal(signal.SIGALRM, handler)
-        signal.alarm(120)
+        signal.alarm(3000)
         result = FeatureConstruction.get_some_feature(
             data,[_ for _ in range(1, 26)])
         signal.alarm(0)
