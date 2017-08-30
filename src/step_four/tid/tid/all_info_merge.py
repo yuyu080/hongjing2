@@ -28,8 +28,8 @@ def get_spark_session():
     conf.set("spark.executor.instances", 20)
     conf.set("spark.executor.cores", 15)
     conf.set("spark.python.worker.memory", "2g")
-    conf.set("spark.default.parallelism", 2000)
-    conf.set("spark.sql.shuffle.partitions", 2000)
+    conf.set("spark.default.parallelism", 4000)
+    conf.set("spark.sql.shuffle.partitions", 4000)
     conf.set("spark.broadcast.blockSize", 1024)   
     conf.set("spark.shuffle.file.buffer", '512k')
     conf.set("spark.speculation", True)
@@ -325,7 +325,7 @@ def run():
          "/{version}").format(path=OUT_PATH, 
                               version=RELATION_VERSION))    
     tid_df.coalesce(
-        30
+        300
     ).write.parquet(
         "{path}/"
         "all_info_merge/"
