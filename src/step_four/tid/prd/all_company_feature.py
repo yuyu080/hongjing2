@@ -249,7 +249,6 @@ class FeatureConstruction(object):
                 ('else_type', 0)
             ]
         )
-        bgxx_dict.pop('else_type')
         
         if get_property_num('bgxx'):
             for bgxx_name, bgxx_num in get_property_num('bgxx').iteritems():
@@ -640,6 +639,22 @@ def spark_data_flow(tidversion):
         tid_df_cols
     )
 
+    os.system(
+        ("hadoop fs -rmr " 
+         "{path}/"
+         "tid_df"
+         "/{version}").format(path=TMP_PATH, 
+                              version=RELATION_VERSION))
+    tid_df.coalesce(
+        100
+    ).write.parquet(
+         "{path}/"
+         "tid_df/{version}".format(version=RELATION_VERSION,
+                                   path=TMP_PATH))
+    tid_df = spark.read.parquet(
+         "{path}/"
+         "tid_df/{version}".format(version=RELATION_VERSION,
+                                   path=TMP_PATH))
     tid_rdd = tid_df.rdd
         
     #最终计算流程
@@ -689,11 +704,12 @@ def run():
          "all_company_feature"
          "/{version}").format(path=OUT_PATH, 
                               version=RELATION_VERSION))
-    pd_df.coalesce(600).saveAsTextFile(
+    pd_df.repartition(30).saveAsTextFile(
         ("{path}/"
         "all_company_feature"
         "/{version}").format(path=OUT_PATH, 
-                             version=RELATION_VERSION))
+                             version=RELATION_VERSION),
+        compressionCodecClass='org.apache.hadoop.io.compress.GzipCodec')
     
 
 if __name__ == '__main__':  
@@ -707,7 +723,7 @@ if __name__ == '__main__':
     #输入参数
     IN_PATH = "/user/antifraud/hongjing2/dataflow/step_four/tid/tid/"
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_four/tid/prd/"
-
+    TMP_PATH = "/user/antifraud/hongjing2/dataflow/step_four/tid/tmp/"
     
     spark = get_spark_session()
 
