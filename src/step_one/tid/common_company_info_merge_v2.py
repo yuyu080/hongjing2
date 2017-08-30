@@ -12,8 +12,7 @@ import os
 import sys
 
 import configparser
-from pyspark.sql.types import (StructType, StructField, 
-                               StringType, IntegerType, 
+from pyspark.sql.types import (StringType, IntegerType, 
                                BooleanType)
 from pyspark.sql import functions as fun
 from pyspark.sql import  types as tp
@@ -84,6 +83,14 @@ def is_invest(edge_iter):
             a_name=edge_iter.data[0].a_name,
             b_name=edge_iter.data[0].b_name,
             c_name=edge_iter.data[0].c_name)
+            
+def get_relation_type(relations):
+    '''先处理原始关联方，组合各种关系'''
+    if 'INVEST' in  relations:
+        return 'INVEST'
+    else:
+        return 'UNINVEST'
+            
             
 def raw_spark_data_flow():
     '''
@@ -249,9 +256,9 @@ def raw_spark_data_flow():
     
     #2.1 解析关联方，获取全量公司列表
     #由于历史关联方的更新问题，这里从sample中选取最新的bbd_qyxx_id
-    tid_df = sample_df.join(
+    tid_df_1 = sample_df.join(
         relation_df,
-        fun.trim(relation_df.a_name) == fun.trim(sample_df.company_name),
+        fun.trim(relation_df.a) == fun.trim(sample_df.bbd_qyxx_id),
         'left_outer'
     ).select(
         sample_df.bbd_qyxx_id.alias('a'),
@@ -261,25 +268,84 @@ def raw_spark_data_flow():
         sample_df.company_name.alias('a_name'),
         'b_name','c_name'
     )
+    #中间结果落地,然后再读取
+    #这里这么处理是无奈之举，输入数据太大，spark的执行计划有问题
+    os.system(
+        "hadoop fs -rmr "
+        "{path}/*".format(path=TMP_PATH))
+
+    tid_df_1.coalesce(
+        500
+    ).write.parquet(
+        "{path}/"
+        "tid_df_1/{version}".format(version=RELATION_VERSION,
+                                    path=TMP_PATH))
+    tid_df_1 = spark.read.parquet(
+        "{path}/"
+        "tid_df_1/{version}".format(version=RELATION_VERSION,
+                                    path=TMP_PATH)
+    )
     
-    glf_schema = StructType([
-            StructField('a',StringType(),True),
-            StructField('b',StringType(),True),
-            StructField('c',StringType(),True),
-            StructField('b_degree',IntegerType(),True),
-            StructField('c_degree',IntegerType(),True),
-            StructField('bc_relation',StringType(),True),
-            StructField('b_isperson',IntegerType(),True),
-            StructField('c_isperson',IntegerType(),True),
-            StructField('a_name',StringType(),True),
-            StructField('b_name',StringType(),True),
-            StructField('c_name',StringType(),True)])
+    #过滤大节点
+    tmp_df_1 = tid_df_1.groupBy(
+        'a'    
+    ).count(
+    ).where(
+        'count < 100000'
+    )
+    tmp_df_1.coalesce(
+        100
+    ).write.parquet(
+         "{path}/"
+         "tmp_df_1/{version}".format(version=RELATION_VERSION,
+                                     path=TMP_PATH))  
+    tmp_df_1 = spark.read.parquet(
+         "{path}/"
+         "tmp_df_1/{version}".format(version=RELATION_VERSION,
+                                     path=TMP_PATH))  
     
-    tid_df = tid_df.rdd.map(lambda r: ((r.a, r.b, r.c), r)) \
-        .groupByKey().mapValues(is_invest) \
-        .map(lambda r: r[1]) \
-        .toDF(schema=glf_schema) \
-        .cache()
+    get_relation_type_udf = fun.udf(get_relation_type, tp.StringType())
+    
+    tid_df = tmp_df_1.join(
+        tid_df_1,
+        tid_df_1.a == tmp_df_1.a
+    ).select(
+        tid_df_1.a,
+        tid_df_1.b,
+        tid_df_1.c,
+        tid_df_1.b_degree,
+        tid_df_1.c_degree,
+        tid_df_1.bc_relation,
+        tid_df_1.b_isperson,
+        tid_df_1.c_isperson,
+        tid_df_1.a_name,
+        tid_df_1.b_name,
+        tid_df_1.c_name
+    ).groupBy(
+        ['a', 'b', 'c', 
+        'a_name', 'b_name', 'c_name', 
+        'b_degree', 'c_degree', 'b_isperson', 'c_isperson']
+    ).agg(
+        {'bc_relation': 'collect_list'}
+    ).select(
+        'a', 'b', 'c',
+        'a_name', 'b_name', 'c_name', 
+        'b_degree', 'c_degree', 
+        'b_isperson', 'c_isperson',
+        get_relation_type_udf(
+            'collect_list(bc_relation)'
+        ).alias('bc_relation')
+    )
+    
+    #tid_df中间结果落地,然后再读取
+    tid_df.coalesce(100).write.parquet(
+        "{path}/"
+        "tid_df/{version}".format(version=RELATION_VERSION,
+                                  path=TMP_PATH))
+    tid_df = spark.read.parquet(
+        "{path}/"
+        "tid_df/{version}".format(version=RELATION_VERSION,
+                                  path=TMP_PATH))
         
     tid_company_list_df = tid_df.select(
         'a', 'a_name'
@@ -302,6 +368,7 @@ def raw_spark_data_flow():
     ).dropDuplicates(
         ['bbd_qyxx_id']
     ).cache()
+    
     
     #2.2 合并所有公司的相关信息
     #国企
@@ -853,8 +920,8 @@ def raw_spark_data_flow():
             
     all_company_namefrag_df = tid_company_info_df.select(
         'company_name'
-    ).rdd.repartition(
-        100
+    ).rdd.coalesce(
+        500
     ).mapPartitions(
         get_company_namefrag
     ).map(
@@ -886,9 +953,6 @@ def raw_spark_data_flow():
     ).cache()
     
     #中间结果落地
-    os.system(
-        "hadoop fs -rmr "
-        "{path}/*".format(path=TMP_PATH))
     all_company_address_df.repartition(500).write.parquet(
         "{path}/"
         "all_company_address_df/{version}".format(version=RELATION_VERSION,
@@ -901,10 +965,6 @@ def raw_spark_data_flow():
         "{path}/"
         "tid_company_info_df/{version}".format(version=RELATION_VERSION,
                                                path=TMP_PATH))
-    tid_df.repartition(500).write.parquet(
-        "{path}/"
-        "tid_df/{version}".format(version=RELATION_VERSION,
-                                  path=TMP_PATH))
 
 def tid_spark_data_flow():
     is_common_interests_udf = fun.udf(is_common_interests, tp.IntegerType())
@@ -936,7 +996,7 @@ def tid_spark_data_flow():
     ).dropDuplicates(
         ['bbd_qyxx_id']
     ).repartition(
-        10
+        200
     ).write.parquet(
         "{path}/"
         "some_black_info_df/{version}".format(version=RELATION_VERSION,
@@ -1139,7 +1199,7 @@ def prd_spark_data_flow():
         "{version}".format(version=RELATION_VERSION,
                            path=OUT_PATH))
     
-    tid_company_merge_df.repartition(30).write.parquet(
+    tid_company_merge_df.repartition(300).write.parquet(
         "{path}/"
         "common_company_info_merge_v2/"
         "{version}".format(version=RELATION_VERSION,
@@ -1157,12 +1217,12 @@ def get_spark_session():
     conf = SparkConf()
     conf.setMaster('yarn-client')
     conf.set("spark.yarn.am.cores", 15)
-    conf.set("spark.executor.memory", "60g")
+    conf.set("spark.executor.memory", "70g")
     conf.set("spark.executor.instances", 25)
     conf.set("spark.executor.cores", 10)
     conf.set("spark.python.worker.memory", "3g")
-    conf.set("spark.default.parallelism", 3000)
-    conf.set("spark.sql.shuffle.partitions", 3000)
+    conf.set("spark.default.parallelism", 6000)
+    conf.set("spark.sql.shuffle.partitions", 6000)
     conf.set("spark.broadcast.blockSize", 1024)
     conf.set("spark.sql.crossJoin.enabled", True)
     conf.set("spark.executor.extraJavaOptions",
