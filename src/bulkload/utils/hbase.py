@@ -30,7 +30,7 @@ class HbaseUtils:
         p=subprocess.Popen(command_create_hfile,stdout=subprocess.PIPE,shell=True)
         logging.debug( p.stdout.readlines())
         # 导入hbase
-        command_import = 'hbase org.apache.hadoop.hbase.mapreduce.LoadIncrementalHFiles '+hadoop_root_dir+ghfile_path+ ' ' +tabName
+        command_import = 'hbase org.apache.hadoop.hbase.mapreduce.LoadIncrementalHFiles -Dhbase.mapreduce.bulkload.max.hfiles.perRegion.perFamily=1024 '+hadoop_root_dir+ghfile_path+ ' ' +tabName
         p=subprocess.Popen(command_import,stdout=subprocess.PIPE,shell=True)
         logging.debug( p.stdout.readlines())
     
