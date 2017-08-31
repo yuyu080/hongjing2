@@ -11,49 +11,24 @@ import sys
 import json
 import re
 import os
-
+from functools import partial
 import configparser
+
 from pyspark.sql import types as tp
 from pyspark.sql import functions as fun
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
 
-def get_p2p_feature_19(col):
-    '''
-    自动投标风险
-    '''
-    if u'不支持' in col:
-        risk = 0.
-    elif u'支持' in col:
-        risk = 100.
+def get_keyword(keyword, col):
+    if keyword in col:
+        return 0.
     else:
-        risk = 0.
-    return risk
-
-def get_p2p_feature_20(col):
-    '''
-    债权转让
-    '''
-    if u'不可转让' in col or u'-' in col:
-        risk = 0.
-    else:
-        risk = 100.
-    return risk
-
-def get_p2p_feature_21(col):
-    '''
-    资金托管
-    '''
-    if u'无存管' in col:
-        risk = 100.
-    else:
-        risk = 0.
-    return risk
+        return 1.
 
 def get_float(value):
     try:
         return round(float(re.search('[\d\.\,]+', 
-                                       value).group().replace(',', '')), 2)
+                                     value).group().replace(',', '')), 2)
     except:
         return 0.
 
@@ -72,12 +47,15 @@ def get_unique_string(col1, col2):
         return col2
 
 def spark_data_flow():
-    json_to_obj_udf = fun.udf(json_to_obj, 
-                              tp.MapType(tp.StringType(), tp.FloatType()))    
+    json_to_obj_udf = fun.udf(
+        json_to_obj, tp.MapType(tp.StringType(), tp.FloatType()))    
     get_float_udf = fun.udf(get_float, tp.FloatType())
-    get_p2p_feature_19_udf = fun.udf(get_p2p_feature_19, tp.DoubleType())
-    get_p2p_feature_20_udf = fun.udf(get_p2p_feature_20, tp.DoubleType())
-    get_p2p_feature_21_udf = fun.udf(get_p2p_feature_21, tp.DoubleType())
+    get_claim_transfer_udf = fun.udf(
+        partial(get_keyword, u'不可转让'), tp.FloatType())
+    get_bank_custody_udf = fun.udf(
+        partial(get_keyword, u'无存管'), tp.FloatType())
+    get_risk_reserve_udf = fun.udf(
+        partial(get_keyword, u'无存管'), tp.FloatType())
     get_unique_string_udf = fun.udf(get_unique_string, tp.StringType())    
     
     raw_wdzj_df = spark.sql(
@@ -89,7 +67,8 @@ def spark_data_flow():
         automatic_bidding,
         claim_transfer,
         bank_custody,
-        platform_state
+        platform_state,
+        risk_reserve
         FROM
         dw.qyxg_wdzj
         WHERE
@@ -101,9 +80,9 @@ def spark_data_flow():
         'company_name',
         'platform_name',
         'platform_state',
-        get_p2p_feature_19_udf('automatic_bidding').alias('p2p_feature_19'),
-        get_p2p_feature_20_udf('claim_transfer').alias('p2p_feature_20'),
-        get_p2p_feature_21_udf('bank_custody').alias('p2p_feature_21')
+        get_claim_transfer_udf('claim_transfer').alias('p2p_feature_17'),
+        get_bank_custody_udf('bank_custody').alias('p2p_feature_18'),
+        get_risk_reserve_udf('risk_reserve').alias('p2p_feature_19')
     )
     
     platform_df = spark.sql(
@@ -112,6 +91,8 @@ def spark_data_flow():
         bbd_qyxx_id
         ,company_name
         ,platform_name
+        ,platform_state
+        ,regcap
         ,per_lending_amount
         ,avg_soldout_time 
         ,total_num_of_lender 
@@ -121,12 +102,9 @@ def spark_data_flow():
         ,per_lending_num 
         ,avg_lend_time 
         ,per_borrowing_num 
-        ,total_num_of_borrower 
-        ,lending_dispersion 
         ,loan_balance 
         ,per_borrowing_amount 
         ,borrowing_dispersion 
-        ,platform_state
         FROM
         dw.qyxg_platform_data
         WHERE
@@ -140,34 +118,36 @@ def spark_data_flow():
         'company_name',
         'platform_name',
         'platform_state',
-        get_float_udf('per_lending_amount').alias('p2p_feature_1'),
-        get_float_udf('avg_soldout_time').alias('p2p_feature_2'),
-        get_float_udf('total_num_of_lender').alias('p2p_feature_3'),
-        get_float_udf('total_turnover').alias('p2p_feature_4'),
-        get_float_udf('total_deal_volume').alias('p2p_feature_5'),
         json_to_obj_udf(
-            'monthly_deal_data').getItem(
-                'deal_volume').alias('p2p_feature_6'),
+            'monthly_deal_data'
+        ).getItem('turnover').alias('p2p_feature_1'),
         json_to_obj_udf(
-            'monthly_deal_data').getItem(
-                'turnover').alias('p2p_feature_7'),
+            'monthly_deal_data'
+        ).getItem('num_of_lender').alias('p2p_feature_2'),
         json_to_obj_udf(
-            'monthly_deal_data').getItem(
-                'nominal_interest_rate').alias('p2p_feature_8'),
-        json_to_obj_udf(
-            'monthly_deal_data').getItem(
-                'num_of_lender').alias('p2p_feature_9'),
-        json_to_obj_udf(
-            'monthly_deal_data').getItem(
-                'num_of_borrower').alias('p2p_feature_10'),
+            'monthly_deal_data'),
+        fun.when(
+            platform_df.platform_state == u'异常', 0
+        ).when(
+            platform_df.platform_state == u'正常', 2
+        ).otherwise(
+            1
+        ).alias('p2p_feature_3'),
+        get_float_udf('borrowing_dispersion').alias('p2p_feature_4'),
+        get_float_udf('per_lending_amount').alias('p2p_feature_5'),
+        get_float_udf('regcap').alias('p2p_feature_6'),
+        get_float_udf('avg_soldout_time').alias('p2p_feature_7'),
+        get_float_udf('total_num_of_lender').alias('p2p_feature_8'),
+        get_float_udf('total_turnover').alias('p2p_feature_9'),
+        get_float_udf('total_deal_volume').alias('p2p_feature_10'),
         get_float_udf('per_lending_num').alias('p2p_feature_11'),
         get_float_udf('avg_lend_time').alias('p2p_feature_12'),
         get_float_udf('per_borrowing_num').alias('p2p_feature_13'),
-        get_float_udf('total_num_of_borrower').alias('p2p_feature_14'),
-        get_float_udf('lending_dispersion').alias('p2p_feature_15'),
-        get_float_udf('loan_balance').alias('p2p_feature_16'),
-        get_float_udf('per_borrowing_amount').alias('p2p_feature_17'),
-        get_float_udf('borrowing_dispersion').alias('p2p_feature_18'),
+        get_float_udf('per_borrowing_amount').alias('p2p_feature_14'),
+        get_float_udf('loan_balance').alias('p2p_feature_15'),
+        json_to_obj_udf(
+            'monthly_deal_data'
+        ).getItem('nominal_interest_rate').alias('p2p_feature_16'),
     )
     
     prd_platform_df = tid_platform_df.join(
@@ -208,11 +188,9 @@ def spark_data_flow():
         'p2p_feature_14',
         'p2p_feature_15',
         'p2p_feature_16',
-        'p2p_feature_17',
-        'p2p_feature_18',
-        tid_wdzj_df.p2p_feature_19,
-        tid_wdzj_df.p2p_feature_20,
-        tid_wdzj_df.p2p_feature_21
+        tid_wdzj_df.p2p_feature_17,
+        tid_wdzj_df.p2p_feature_18,
+        tid_wdzj_df.p2p_feature_19
     ).dropDuplicates(
         ['bbd_qyxx_id', 'platform_name']
     ).fillna(
