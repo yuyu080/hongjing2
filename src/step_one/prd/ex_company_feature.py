@@ -9,8 +9,6 @@ ex_company_feature.py {version}
 '''
 
 import sys
-import json
-import re
 import os
 
 import configparser
@@ -20,13 +18,6 @@ from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
 
 
-def get_float(value):
-    try:
-        return round(float(re.search('[\d\.\,]+', 
-                                     value).group().replace(',', '')), 2)
-    except:
-        return 0.
-    
     
 class ExFeatureConstruction(object):
     '''
@@ -41,131 +32,73 @@ class ExFeatureConstruction(object):
         def wappen(cls, *args, **kwargs):
             try:
                 return func(cls, *args, **kwargs)
-            except Exception, e:
-                return dict(error=(
-                    "{func_name} has a errr : {excp}"
-                ).format(func_name=func.__name__, excp=e))
+            except Exception:
+                return {'error': 'error'}
         return wappen    
     
     @__fault_tolerant
-    def get_json_key(cls, json_string, key):
+    def get_feature_1(cls, gov_doc):
         '''
-        从json字符串中求出某个key的平均值
+        政府批文
         '''
-        obj = json.loads(json_string)
-        data = [get_float(each_line.get(key, '0'))
-                     for each_line in obj]
-        total = float(sum(data))
-        num = len(data) if total else 0
-        avg = round(total/num, 2) if num else 0.
-        return avg
-    
-    @__fault_tolerant
-    def _get_feature_1(cls, trading_variety_info):
-        '''
-        交易波动风险
-        '''
-        avg = cls.get_json_key(trading_variety_info, u'每日波动价格限制')
-        
-        if 0 < avg < 5:
-            risk = 10.
-        elif 5 <= avg < 10:
-            risk = 30.
-        elif 10 <= avg < 50:
-            risk = 60.
-        elif 50 <= avg:
-            risk = 100.
+        if (gov_doc == 'NULL' or 
+                gov_doc == 'null' or not gov_doc):
+            risk = 0.
         else:
-            risk = 10.
-        
-        return risk
-
-    @__fault_tolerant
-    def get_feature_1(cls, trading_variety_info):
-        '''
-        保证金风险
-        '''
-        avg = cls.get_json_key(trading_variety_info, u'最低保证金')
-        
-        if 0 < avg < 5:
-            risk = 100.
-        elif 5 <= avg < 8:
-            risk = 60.
-        elif 8 <= avg < 15:
-            risk = 30.
-        elif 15 <= avg:
-            risk = 10.
-        else:
-            risk = 100.
-        
-        return risk
-    
-    @__fault_tolerant
-    def _get_feature_3(cls, trading_variety_info):
-        '''
-        手续费风险
-        '''
-        def get_sp_float(data):
-            try:
-                return round(float(re.search('[\d\.\,]+%', 
-                                             data).group().replace('%', '')), 2)
-            except:
-                return 0.            
-        
-        obj = json.loads(trading_variety_info)
-        data = [get_sp_float(each_line.get(u'手续费', '0'))
-                     for each_line in obj]
-        total = float(sum(data))
-        num = len(filter(lambda x: x != 0, data)) if total else 0
-        avg = round(total/num, 2) if num else 0.
-        
-        if 0 < avg < 0.05:
-            risk = 100.
-        elif 0.05 <= avg < 0.1:
-            risk = 60.
-        elif 0.1 <= avg <0.15:
-            risk = 30.
-        elif 0.15 <= avg:
-            risk = 10.
-        else:
-            risk =100.
+            risk = 1.
             
-        return risk
+        return float(risk)   
     
     @__fault_tolerant
-    def get_feature_2(cls, trading_variety_info):
+    def get_feature_2(cls, regcap):
         '''
-        交易品种风险
+        注册资本（万元）
         '''
-        obj = json.loads(trading_variety_info)
-        data = [each_line.get(u'交易品种', '')
-                     for each_line in obj]
-        
-        for each_breed_name in data:         
-            if (u'原油' in each_breed_name  or 
-                        u'石油' in each_breed_name):
-                risk = 100.
-                break
-            else:
-                continue
+        try:
+            return float(regcap)
+        except:
+            return 0.
+
+    @__fault_tolerant
+    def get_feature_3(cls, exchange_type):
+        '''
+        交易所类型
+        '''
+        if exchange_type == u'现货':
+            risk = 1.
+        elif exchange_type == u'权益':
+            risk = 2.
         else:
-            risk = 10.
+            risk = 3.
         
-        return risk
+        return float(risk)
     
     @__fault_tolerant
-    def get_feature_3(cls, legal_opinion):
+    def get_feature_4(cls, material_files):
         '''
-        违规会员单位风险，必须在step_two中计算
+        资料文件   
+        '''
+        if (material_files == 'NULL' or 
+                material_files == 'null' or not material_files):
+            risk = 0.
+        else:
+            risk = 1.
+            
+        return float(risk)  
+    
+    @__fault_tolerant
+    def get_feature_5(cls, legal_opinion):
+        '''
+        违规会员单位风险
         '''
         pass
 
     @__fault_tolerant
-    def get_feature_4(cls, legal_opinion):
+    def get_feature_6(cls, legal_opinion):
         '''
-        高风险会员单位风险，必须在step_two中计算
+        高风险会员单位风险
         '''
-        pass
+        pass    
     
         
 class SparkUdf(ExFeatureConstruction):
@@ -174,7 +107,8 @@ class SparkUdf(ExFeatureConstruction):
     '''
     @classmethod
     def define_spark_udf(cls, func_num, return_type):
-        func_name = eval('cls.get_feature_{func_num}'.format(func_num=func_num))
+        func_name = eval(
+            'cls.get_feature_{func_num}'.format(func_num=func_num))
         return fun.udf(func_name, return_type)    
 
 
@@ -184,22 +118,30 @@ def spark_data_flow(exchange_version):
         SELECT
         bbd_qyxx_id,
         company_name,
-        trading_variety_info
+        gov_doc,
+        exchange_type,
+        regcap,
+        material_files
         FROM
         dw.qyxg_exchange
         WHERE
         dt='{version}'
         '''.format(version=exchange_version)
-    ).dropDuplicates(['bbd_qyxx_id'])
+    ).cache()
+    
     udf_return_type = tp.FloatType()
     tid_df = exchange_df.select(
         'bbd_qyxx_id',
         'company_name',
         SparkUdf.define_spark_udf(
-            1, udf_return_type)('trading_variety_info').alias('ex_feature_1'),
+            1, udf_return_type)('gov_doc').alias('ex_feature_1'),
         SparkUdf.define_spark_udf(
-            2, udf_return_type)('trading_variety_info').alias('ex_feature_2')
-    )   
+            2, udf_return_type)('regcap').alias('ex_feature_2'),
+        SparkUdf.define_spark_udf(
+            3, udf_return_type)('exchange_type').alias('ex_feature_3'),
+        SparkUdf.define_spark_udf(
+            4, udf_return_type)('material_files').alias('ex_feature_4')
+    )
     
     return tid_df
     
@@ -254,7 +196,7 @@ if __name__ == '__main__':
     #输入参数
     EXCHANGE_VERSION = conf.get('ex_company_feature', 'EXCHANGE_VERSION')
     #中间结果版本
-    RELATION_VERSION = sys.argv[1]    
+    RELATION_VERSION = sys.argv[1]
     
     OUT_PATH = conf.get('common_company_feature', 'OUT_PATH')
     
