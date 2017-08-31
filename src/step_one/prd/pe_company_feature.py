@@ -10,7 +10,6 @@ pe_company_feature.py {version}
 import sys
 import json
 import os
-import math
 
 import configparser
 from pyspark.sql import types as tp
@@ -32,195 +31,204 @@ class PeFeatureConstruction(object):
         def wappen(cls, *args, **kwargs):
             try:
                 return func(cls, *args, **kwargs)
-            except Exception, e:
-                return dict(error=(
-                    "{func_name} has a errr : {excp}"
-                ).format(func_name=func.__name__, excp=e))
+            except Exception:
+                return {'error': 'error'}
         return wappen    
 
     @__fault_tolerant
-    def get_feature_1(cls, is_filed):
+    def get_feature_1(cls, managed_fund_type):
         '''
-        私募基金管理人是否备案
+        基金管理类型
         '''
-        return 0. if is_filed else 100.
-
-    @__fault_tolerant
-    def get_feature_2(cls, legal_opinion):
-        '''
-        私募整改合规风险
-        '''
-        if legal_opinion is None:
-            risk = 100
-        elif u'要求提交' in legal_opinion:
-            risk = 100
-        elif u'办结' in legal_opinion:
-            risk = 50
+        if not managed_fund_type:
+            risk = 70
         else:
-            risk = 10
-            
+            if u'证券投资基金' in managed_fund_type:
+                risk = 20
+            elif u'股权投资基金' in managed_fund_type:
+                risk = 50
+            else:
+                risk = 70
+        
         return float(risk)
     
     @__fault_tolerant
-    def get_feature_3(cls, ifcareer_qualification, executive_info):
+    def get_feature_2(cls, pic_millon):
         '''
-        高管从业资格风险
+        实缴资本
         '''
-        def has_qualification(info):
-            if u'是' in info:
-                return 1
-            else:
-                return 0
-        if ifcareer_qualification == u'是':
-            risk = 10
-        else:
-            if executive_info is not None:
-                obj = json.loads(executive_info)
-                requirements = [
-                    has_qualification(
-                        each_manager_info.get(u'是否具有基金从业资格', ''))
-                    for each_manager_info in obj]
-                
-                if sum(requirements) == 0:
-                    risk = 100
-                elif sum(requirements) == len(requirements):
-                    risk = 10
-                else: 
-                    risk = 50
-            else:
-                    risk = 100
-                
-        return float(risk)
+        try:
+            risk = pic_millon.replace(',', '')
+            return float(risk)
+        except:
+            return 0.
 
     @__fault_tolerant
-    def get_feature_4(cls, is_vip, vip_type):        
+    def get_feature_3(cls, regcap_paidpro):
         '''
-        会员资质认定
+        认缴比例
         '''
-        if is_vip is None and vip_type is None:
-            risk = 100
-        else: 
-            if u'是' in is_vip: 
-                if u'普通会员' in vip_type:
-                    risk = 10
-                elif u'观察会员' in vip_type:
-                    risk = 50
-                else:
-                    risk =100
-            else:
-                risk = 100
-           
-        return float(risk)
+        try:
+            risk = regcap_paidpro.replace('%', '')
+            return round(float(risk) / 100., 3)
+        except:
+            return 0.
         
     @__fault_tolerant
-    def get_feature_5(cls, managed_fund_type, 
-                           application_othertype):
+    def get_feature_4(cls, law_firm):
         '''
-        基金管理类别风险
+        是否聘请律师事务所
         '''
-        risk_distribution = {
-            u'证券投资基金': 20,
-            u'股权投资基金': 50,
-            u'创业投资基金': 70,
-            u'其他投资基金': 70
-        }
-        fund_types = managed_fund_type + application_othertype
-        
-        score_list = [
-            v 
-            for k, v in risk_distribution.iteritems() 
-            if k in fund_types]
-        if score_list:
-            risk = max(score_list)
+        if law_firm and law_firm != 'NULL' and law_firm != 'null':
+            return 1.
         else:
-            risk = 0.
-        
-        return float(risk)
+            return 0.
+
+    @__fault_tolerant
+    def get_feature_5(cls, no_qualification):
+        '''
+        高管人员是否有证券投资基金从业资格
+        '''
+        if no_qualification == u'是':
+            return 1.
+        else:
+            return 0.
         
     @__fault_tolerant
     def get_feature_6(cls, employees):
         '''
-        人员规模风险
+        员工人数
         '''
-        if employees is None:
-            risk = 100
-        else:
-            try:
-                recruit_num = int(employees)
-                if recruit_num < 10:
-                    risk = 80
-                elif 10 <= recruit_num < 50:
-                    risk = 50
-                elif 50 <= recruit_num:
-                    risk = 30
-                else:
-                    risk = 10
-            except:
-                risk = 100
-
-        return float(risk)
-        
-    @__fault_tolerant
-    def get_feature_7(cls, abnormal_close):
-        '''
-        基金异常清盘风险
-        '''
-        if abnormal_close == u'否':
-            risk = 10
-        else:
-            risk = 100
-        
-        return float(risk)
-
-    @__fault_tolerant
-    def get_feature_8(cls, interim_after_fund):
-        '''
-        暂行办法实施后基金发行异常风险
-        '''
-        if interim_after_fund is not None: 
-            fund_num  = len(set(json.loads(interim_after_fund)))
-            if fund_num > 0:
-                risk = 10
+        try:
+            if employees:
+                return float(employees)
             else:
-                risk = 100
-        else:
-            risk = 100
-            
-        return float(risk)
+                return 0.
+        except:
+            return 0.
         
-    @__fault_tolerant    
-    def get_feature_9(cls, interim_before_fund, interim_after_fund):
-        '''
-        基金规模风险
-        '''
-        interim_after_fund = json.loads(interim_after_fund)
-        interim_before_fund = json.loads(interim_before_fund)
-        
-        if interim_after_fund or interim_before_fund:
-            fund_num = len(set(
-                interim_after_fund + interim_before_fund))
-            risk = (1 - math.exp(-fund_num)) * 100
-        else:
-            risk = 100.
-        
-        return float(risk)
-    
     @__fault_tolerant
-    def get_feature_10(cls, integrity_info):
+    def get_feature_7(cls, entitled_way):
         '''
-        机构诚信风险
+        资格取得方式
         '''
-        if integrity_info is not None and integrity_info != 'NULL':
-            risk = 100
+        if not entitled_way:
+            return 0.
         else:
-            risk = 10
+            if u'通过考试' in entitled_way:
+                return 1.
+            elif u'资格认定' in entitled_way:
+                return 2.
+            else:
+                return 0.
+
+    @__fault_tolerant
+    def get_feature_8(cls, ifcareer_qualification):
+        '''
+        是否有从业资格
+        '''
+        if not ifcareer_qualification:
+            return 0.
+        else:
+            if ifcareer_qualification == u'是':
+                return 1.
+            else:
+                return 0.        
+            
+    @__fault_tolerant
+    def get_feature_9(cls, vip_type):
+        '''
+        会员等级
+        '''
+        if not vip_type:
+            return 0.
+        else:
+            if vip_type == u'普通会员':
+                return 2.
+            elif vip_type == u'观察会员':
+                return 1.
+            else:
+                return 0.             
+            
+    @__fault_tolerant    
+    def get_feature_10(cls, interim_after_fund):
+        '''
+        私募整改后发行基金数量
+        '''
+        if interim_after_fund: 
+            fund_num = len(set(json.loads(interim_after_fund)))
+        else:
+            fund_num = 0.
+        
+        return float(fund_num)
+            
+    @__fault_tolerant    
+    def get_feature_11(cls, interim_before_fund):
+        '''
+        私募整改前发行基金数量
+        '''
+        if interim_before_fund: 
+            fund_num = len(set(json.loads(interim_before_fund)))
+        else:
+            fund_num = 0.
+        
+        return float(fund_num)
+            
+    @__fault_tolerant
+    def get_feature_12(cls, integrity_info):
+        '''
+        是否提示为异常机构
+        '''
+        if integrity_info and u'异常机构' in integrity_info:
+            risk = 1.
+        else:
+            risk = 0.
             
         return dict(
             risk=str(risk),
-            info=integrity_info.replace('\t', '') \
-                               .replace('\r', '') \
-                               .replace('rn', '')
+            info=integrity_info.replace(
+                '\t', ''
+            ) .replace(
+                '\r', ''
+            ).replace(
+                'rn', ''
+            )
         )
+            
+    @__fault_tolerant
+    def get_feature_13(cls, integrity_info, special_message):
+        '''
+        是否有其他诚信提示，是否有其他特别信息
+        '''
+        if integrity_info and u'其他诚信信息' in integrity_info:
+            risk = 1.
+        else:
+            risk = 0.
+            
+        return dict(
+            risk=str(risk),
+            special_info=special_message.replace(
+                '\t', ''
+            ) .replace(
+                '\r', ''
+            ).replace(
+                'rn', ''
+            )
+        )
+            
+    @__fault_tolerant
+    def get_feature_14(cls, legal_opinion):
+        '''
+        是否按要求提供法律意见书
+        '''
+        if (legal_opinion == 'NULL' or 
+                legal_opinion == 'null' or not legal_opinion):
+            risk = 0.
+        else:
+            risk = 1.
+            
+        return float(risk)
+
     
     
 class SparkUdf(PeFeatureConstruction):
@@ -229,7 +237,8 @@ class SparkUdf(PeFeatureConstruction):
     '''
     @classmethod
     def define_spark_udf(cls, func_num, return_type):
-        func_name = eval('cls.get_feature_{func_num}'.format(func_num=func_num))
+        func_name = eval(
+            'cls.get_feature_{func_num}'.format(func_num=func_num))
         return fun.udf(func_name, return_type)    
     
     
@@ -250,50 +259,58 @@ def spark_data_flow(smjj_version):
     tid_df = smjj_df.select(
         'bbd_qyxx_id',
         smjj_df.fund_manager_chinese.alias('company_name'),
-        smjj_df.fund_manager_chinese.isNotNull().alias('is_filed'),
-        'legal_opinion',
-        'executive_info',
-        'is_vip', 
-        'vip_type',
         'managed_fund_type',
+        'pic_millon',
+        'regcap_paidpro',
+        'law_firm',
+        'no_qualification',
         'employees',
-        'abnormal_close',
+        'entitled_way',
+        'ifcareer_qualification',
+        'vip_type',
         'interim_after_fund',
         'interim_before_fund',
         'integrity_info',
-        'ifcareer_qualification',
-        'application_othertype'
-    ).dropDuplicates(['bbd_qyxx_id'])
-
+        'special_message',
+        'legal_opinion'
+    ).dropDuplicates(
+        ['company_name']
+    ).cache()
+    
     udf_return_type = tp.FloatType()
     prd_df = tid_df.select(
         'bbd_qyxx_id',
         'company_name',
         SparkUdf.define_spark_udf(
-            1, udf_return_type)('is_filed').alias('pe_feature_1'),
+            1, udf_return_type)('managed_fund_type').alias('pe_feature_1'),
         SparkUdf.define_spark_udf(
-            2, udf_return_type)('legal_opinion').alias('pe_feature_2'),
+            2, udf_return_type)('pic_millon').alias('pe_feature_2'),
         SparkUdf.define_spark_udf(
-            3, udf_return_type)('ifcareer_qualification', 
-                                'executive_info').alias('pe_feature_3'),        
+            3, udf_return_type)('regcap_paidpro').alias('pe_feature_3'),
         SparkUdf.define_spark_udf(
-            4, udf_return_type)('is_vip', 'vip_type').alias('pe_feature_4'),        
+            4, udf_return_type)('law_firm').alias('pe_feature_4'),
         SparkUdf.define_spark_udf(
-            5, udf_return_type)('managed_fund_type',
-                                'application_othertype').alias('pe_feature_5'),        
+            5, udf_return_type)('no_qualification').alias('pe_feature_5'),
         SparkUdf.define_spark_udf(
-            6, udf_return_type)('employees').alias('pe_feature_6'),        
+            6, udf_return_type)('employees').alias('pe_feature_6'),
         SparkUdf.define_spark_udf(
-            7, udf_return_type)('abnormal_close').alias('pe_feature_7'),         
+            7, udf_return_type)('entitled_way').alias('pe_feature_7'),
         SparkUdf.define_spark_udf(
-            8, udf_return_type)('interim_after_fund').alias('pe_feature_8'),         
+            8, udf_return_type)('ifcareer_qualification').alias('pe_feature_8'),
         SparkUdf.define_spark_udf(
-            9, udf_return_type)('interim_before_fund', 
-                                'interim_after_fund').alias('pe_feature_9'),   
+            9, udf_return_type)('vip_type').alias('pe_feature_9'),    
         SparkUdf.define_spark_udf(
-            10, 
-            tp.MapType(tp.StringType(), tp.StringType())
-        )('integrity_info').alias('pe_feature_10')
+            10, udf_return_type)('interim_after_fund').alias('pe_feature_10'), 
+        SparkUdf.define_spark_udf(
+            11, udf_return_type)('interim_before_fund').alias('pe_feature_11'), 
+        SparkUdf.define_spark_udf(
+            12, tp.MapType(tp.StringType(), tp.StringType())
+        )('integrity_info').alias('pe_feature_12'),
+        SparkUdf.define_spark_udf(
+            13, tp.MapType(tp.StringType(), tp.StringType())
+        )('integrity_info', 'special_message').alias('pe_feature_13'),
+        SparkUdf.define_spark_udf(
+            14, udf_return_type)('legal_opinion').alias('pe_feature_14')
     )
     
     return prd_df
