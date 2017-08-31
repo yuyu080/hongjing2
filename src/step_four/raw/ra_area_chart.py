@@ -14,7 +14,7 @@ import os
 import configparser
 import json
 import datetime
-from collections import OrderedDict, Counter
+from collections import OrderedDict, Counter, defaultdict
 from functools import partial
 
 import MySQLdb
@@ -213,13 +213,19 @@ def get_num(before, after):
     return len(set(result))
 
 def get_time_sequence(times):
+    '''获得时间序列的统计值'''
+    times_result = defaultdict(int)
+    times_data = map(lambda x: x.split(':'), times)
+    for each_time, each_data in times_data:
+        times_result[each_time] += int(each_data)
+        
     version_keys = sorted(map(get_dt_month, SMJJ_VERSION_LIST))
-    times_data = dict(map(lambda x: x.split(':'), times))
-    version_values = [times_data.get(key, '0') for key in version_keys]
+    version_values = [times_result.get(key, 0) for key in version_keys]
+    
     result = dict(
         date=version_keys,
         value=version_values
-    )
+    )    
     return json.dumps(result, ensure_ascii=False)
     
 def get_high_risk_num(col):
