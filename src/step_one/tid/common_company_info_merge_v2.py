@@ -51,38 +51,6 @@ def get_read_path(file_name, version):
     return "{path}/{file_name}/{version}".format(version=version,
                                                  file_name=file_name,
                                                  path=IN_PATH)
-
-def is_invest(edge_iter):
-    '''
-    将关联图中的各种关系变成：投资/非投资关系
-    '''
-    for each_edge in edge_iter:
-        if each_edge.bc_relation == 'INVEST':
-            return Row(
-                a=each_edge.a,
-                b=each_edge.b,
-                c=each_edge.c,
-                b_degree=each_edge.b_degree,
-                c_degree=each_edge.c_degree,
-                bc_relation=each_edge.bc_relation,
-                b_isperson=each_edge.b_isperson,
-                c_isperson=each_edge.c_isperson,
-                a_name=each_edge.a_name,
-                b_name=each_edge.b_name,
-                c_name=each_edge.c_name)
-    else:
-        return Row(
-            a=edge_iter.data[0].a,
-            b=edge_iter.data[0].b,
-            c=edge_iter.data[0].c,
-            b_degree=edge_iter.data[0].b_degree,
-            c_degree=edge_iter.data[0].c_degree,
-            bc_relation='UNINVEST',
-            b_isperson=edge_iter.data[0].b_isperson,
-            c_isperson=edge_iter.data[0].c_isperson,
-            a_name=edge_iter.data[0].a_name,
-            b_name=edge_iter.data[0].b_name,
-            c_name=edge_iter.data[0].c_name)
             
 def get_relation_type(relations):
     '''先处理原始关联方，组合各种关系'''
@@ -1278,7 +1246,7 @@ if __name__ == "__main__":
     OUT_PATH = conf.get('common_company_info_merge', 'OUT_PATH')
     TMP_PATH = conf.get('common_company_info_merge', 'TMP_PATH')
 
-    #除了TYPE_LR_LIST中的企业外，其余企业还是用xgboost，因此这里需要将他们筛选出来
+    #TYPE_LR_LIST中的企业将使用LR模型
     TYPE_LR_LIST = conf.get('input_sample_data', 'TYPE_LR_LIST')
 
     #sparkSession
