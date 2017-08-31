@@ -336,16 +336,7 @@ def into_mysql(version):
                                      version)
     is_success(result_four, 'step_four', 'raw',
                'ra_area_count.py',
-               version)
-    
-#==============================================================================
-#     result_five = execute_some_step('step_four', 'raw', 
-#                                     'ra_gather_place.py',
-#                                     version)
-#     is_success(result_five, 'step_four', 'raw',
-#                'ra_gather_place.py',
-#                version)
-#==============================================================================
+               version)    
 
     result_five = execute_some_step('step_four', 'raw', 
                                     'ra_black_white.py',
