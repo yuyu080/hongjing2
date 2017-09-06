@@ -4,6 +4,7 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
+--queue project.hongjing \
 ex_info_merge.py {version}
 '''
 import sys
@@ -21,11 +22,11 @@ def get_json_obj(row):
     '''将一级指标合在一起'''
     
     name_mapping = {
-        'ex_company_risk': u'会员企业风险',
-        'ex_trading_exchange_risk': u'交易场所风险',
+        'ex_company_risk': u'综合实力风险',
+        'ex_trading_exchange_risk': u'交易场所行业风险',
         'ex_static_relationship_risk': u'静态关联方风险',
-        'ex_relationship_risk': u'动态关联方风险',
-        'ex_trading_risk': u'交易风险',
+        'ex_dynamic_relationship_risk': u'动态关联方风险',
+        'ex_trading_risk': u'企业行为风险',
     }    
     
     risk_composition = {'--': {
