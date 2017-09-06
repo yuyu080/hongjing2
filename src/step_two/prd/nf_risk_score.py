@@ -4,6 +4,7 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
+--queue project.hongjing \
 nf_risk_score.py
 '''
 
@@ -214,7 +215,7 @@ if __name__ == '__main__':
     MODEL_FILE = ("/data5/antifraud/Hongjing2/data/inputdata/model/"
                   "GM_release_LR.model")
     
-    IN_PATH = conf.get('nf_feature_preprocessing', 'OUT_PATH')
+    IN_PATH = conf.get('feature_preprocessing', 'OUT_PATH')
     OUT_PATH = conf.get('risk_score', 'OUT_PATH')
     
     #中间结果版本

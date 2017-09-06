@@ -4,6 +4,7 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
+--queue project.hongjing \
 nf_feature_tags.py {version}
 '''
 
@@ -45,7 +46,7 @@ def get_tags(row):
         if (row['feature_7']['e'] and 
                 row['feature_7']['e_1'] / row['feature_7']['e'] >= 0.3):
             tags.append(u'低学历人员招聘比例较高')
-        if row['feature_17']['x'] >= 3:
+        if row['feature_17']['x'] >= 2:
             tags.append(u'对外投资公司数量较多')
         return {
             risk_name: tags
