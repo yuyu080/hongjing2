@@ -4,6 +4,7 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
+--queue project.hongjing \
 pe_info_merge.py {version}
 '''
 import sys
@@ -21,11 +22,11 @@ def get_json_obj(row):
     '''将一级指标合在一起'''
     
     name_mapping = {
-        'pe_organization_management_risk': u'管理机构风险',
-        'pe_organization_relationship_risk': u'机构关联方风险',
-        'pe_strength_risk': u'私募综合实力风险',
-        'pe_management_risk': u'私募基金管理风险',
-        'pe_compliance_risk': u'监管合规性风险',
+        'pe_trading_exchange_risk': u'私募基金行业风险',
+        'pe_company_risk': u'综合实力风险',
+        'pe_static_relationship_risk': u'静态关联方风险',
+        'pe_dynamic_relationship_risk': u'动态关联方风险',
+        'pe_trading_risk': u'企业行为风险',
     }
     
     risk_composition = {'--': {

@@ -4,6 +4,7 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
+--queue project.hongjing \
 pe_feature_merge.py {version}
 '''
 import os
@@ -42,18 +43,21 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
     '''
     合并静态、动态风险特征与p2p行业风险特征
     '''
-    static_df = spark.read.json(        
+    static_df = spark.read.json(
         "{path}/"
-        "common_static_feature_distribution/{version}".format(path=IN_PAHT, 
-                                                              version=static_version))
+        "common_static_feature_distribution_v2/"
+        "{version}".format(path=IN_PAHT, 
+                           version=static_version))
     dynamic_df = spark.read.json(
         "{path}/"
-        "common_dynamic_feature_distribution/{version}".format(path=IN_PAHT, 
-                                                               version=dynamic_version))
+        "common_dynamic_feature_distribution_v2/"
+        "{version}".format(path=IN_PAHT,
+                           version=dynamic_version))
     pe_df = spark.read.json(
         "{path}/"
-        "pe_feature_distribution/{version}".format(path=IN_PAHT, 
-                                                   version=relation_version))
+        "pe_feature_distribution/"
+        "{version}".format(path=IN_PAHT,
+                           version=relation_version))
 
     raw_df = pe_df.join(
         static_df,
@@ -76,6 +80,10 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
         ,'pe_feature_8'
         ,'pe_feature_9'
         ,'pe_feature_10'
+        ,'pe_feature_11'
+        ,'pe_feature_12'
+        ,'pe_feature_13'
+        ,'pe_feature_14'
         ,'feature_1'
         ,'feature_2'
         ,'feature_3'
@@ -102,8 +110,6 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
         ,'feature_24'
         ,'feature_25'
         ,'feature_26'
-        ,'feature_27'
-        ,'feature_28'
     )
 
     return raw_df

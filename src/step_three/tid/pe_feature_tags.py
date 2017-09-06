@@ -4,11 +4,11 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
+--queue project.hongjing \
 pe_feature_tags.py {version}
 '''
 import sys
 import os
-import math
 import json
 
 import configparser
@@ -19,165 +19,171 @@ from pyspark.sql import Row
 
 def get_tags(row):
     
-    def get_pe_compliance_risk(risk_name=u'监管合规性风险'):
+    def get_pe_trading_exchange_risk(risk_name=u'私募基金行业风险'):
         tags = []
-        if row['pe_feature_2'] == 100:
-            tags.append(u'要求提交法律意见书')
-        if row['pe_feature_3'] == 100:
-            tags.append(u'全部高管无基金从业资格')
-        if row['pe_feature_3'] == 50:
+        if row['pe_feature_5'] == 1:
             tags.append(u'部分高管无基金从业资格')
+        if row['pe_feature_9'] == 0:
+            tags.append(u'机构为非会员单位')
+        if row['pe_feature_1'] == 70:
+            tags.append(u'机构为创业/其他投资基金')
+        if row['pe_feature_6'] < 3:
+            tags.append(u'员工人数少于3人')
+        if row['pe_feature_3'] == 0:
+            tags.append(u'机构注册资本未认缴')
+        if row['pe_feature_4'] == 0:
+            tags.append(u'未聘请律师事务所')
+        if row['pe_feature_8'] == 0:
+            tags.append(u'法定代表人无基金从业资格')
+        if row['pe_feature_14'] == 0:
+            tags.append(u'未按要求提交法律意见书')
+        if row['pe_feature_10'] == 0:
+            tags.append(u'暂行办法实施后没有发行过基金产品')
+        if (row['pe_feature_10'] + 
+                row['pe_feature_11']) == 0:
+            tags.append(u'从未发行过基金产品')
+        if row['pe_feature_12']['info']:
+            tags.append(
+                u'机构诚信信息：'+ 
+                row['pe_feature_12']['info'].replace('null', ''))
+        if row['pe_feature_13']['special_info']:
+            tags.append(
+                u'特别提示信息：'+ 
+                row['pe_feature_13']['special_info'].replace('null', ''))
         return {
             risk_name: tags
         }
     
-    def get_pe_strength_risk(risk_name=u'私募综合实力风险'):
+    def get_pe_company_risk(risk_name=u'综合实力风险'):
         tags = []
-        if row['pe_feature_4'] == 100:
-            tags.append(u'管理机构为非会员单位')
-        if row['pe_feature_5'] == 70:
-            tags.append(u'创业投资基金、其他投资基金')
-        if row['pe_feature_6'] == 80:
-            tags.append(u'人员数量小于10人')
-        return {
-            risk_name: tags
-        }
-    
-    def get_pe_management_risk(risk_name=u'私募基金管理风险'):
-        tags = []
-        if row['pe_feature_7'] == 100:
-            tags.append(u'基金异常清盘个数大于（等于）1')
-        if row['pe_feature_8'] == 100:
-            tags.append(u'暂行办法实施后基金没有发行过基金产品')
-        if  round(
-                math.log(
-                    1 / (1 - row['pe_feature_9']/100 + 0.001), 
-                    math.e)) <= 3:
-            tags.append(u'发行基金个数小于（等于）3')
-        if int(row['pe_feature_10']['risk']) == 100:
-            tags.append(row['pe_feature_10']['info'])
-        return {
-            risk_name: tags
-        }
-    
-    def get_organization_management_risk(risk_name=u'管理机构风险'):
-        tags = []
-        if row['feature_6']['c_1'] >= 3:
-            tags.append(u'法定代表人变更频繁')
-        if row['feature_6']['c_2'] >= 3:
-            tags.append(u'股东变更频繁')
-        if row['feature_6']['c_3'] >= 3:
-            tags.append(u'注册资本变更频繁')
-        if row['feature_6']['c_4'] >= 3:
-            tags.append(u'高管变更频繁')
-        if row['feature_6']['c_5'] >= 3:
-            tags.append(u'经营范围变更频繁')
-        if row['feature_8']['t_1'] and row['feature_8']['t_1'] <= 365:
+        if (row['feature_8']['t_1'] and 
+                row['feature_8']['t_1'] < 700):
             tags.append(u'公司成立时间较短')
-        if row['feature_18']['d'] >= 3:
-            tags.append(u'分支机构数量较多')
         if (row['feature_7']['e'] and 
-                row['feature_7']['e_1'] / row['feature_7']['e'] >= 0.5):
-            tags.append(u'大专及大专以下或不限专业招聘比例较高')
-        if row['feature_17']['x'] >= 3:
-            tags.append(u'对外投资公司数量较多')        
-        if (row['feature_10']['0']['ktgg'] >= 2 or 
-                row['feature_10']['0']['rmfygg'] >= 2 or
-                row['feature_10']['0']['zgcpwsw'] >= 2):
-            tags.append(u'企业诉讼文书数量较多')
-        if row['feature_11']['0']['xzcf']:
-            tags.append(u'企业受到行政处罚')
+                row['feature_7']['e_1'] / row['feature_7']['e'] >= 0.3):
+            tags.append(u'低学历人员招聘比例较高')
+        if row['feature_17']['x'] >= 2:
+            tags.append(u'对外投资公司数量较多')
+        return {
+            risk_name: tags
+        }
+
+    def get_pe_trading_risk(risk_name=u'企业行为风险'):
+        tags = []
+        if row['feature_6']['c_1'] >= 2:
+            tags.append(u'法定代表人变更频繁')
+        if row['feature_6']['c_2'] >= 2:
+            tags.append(u'股东变更频繁')
+        if row['feature_6']['c_3'] >= 2:
+            tags.append(u'注册资本变更频繁')
+        if row['feature_6']['c_4'] >= 2:
+            tags.append(u'高管变更频繁')
+        if row['feature_6']['c_5'] >= 2:
+            tags.append(u'经营范围变更频繁')
+        if row['feature_22']['d'] >= 2:
+            tags.append(u'企业利益一致行动法人较多')
+        if row['feature_18']['d'] >= 2:
+            tags.append(u'分支机构数量较多')
+        if row['feature_10']['0']['lending']:
+            tags.append(u'企业存在“民间借贷”类诉讼文书')
+        if row['feature_12']['0']['dishonesty']:
+            tags.append(u'企业存在失信被执行人信息')            
         if row['feature_12']['0']['zhixing']:
             tags.append(u'企业存在被执行人信息')
-        if row['feature_12']['0']['dishonesty']:
-            tags.append(u'企业存在失信被执行人信息')
+        if row['feature_11']['0']['xzcf']:
+            tags.append(u'企业受到行政处罚')
         if row['feature_13']['0']['jyyc']:
-            tags.append(u'企业存在经营异常信息')
-        if row['feature_14']['0']['circxzcf']:
-            tags.append(u'企业受到银监会行政处罚')
+            tags.append(u'企业存在经营异常信息')           
+        if (row['feature_10']['0']['ktgg'] or 
+                row['feature_10']['0']['rmfygg'] or
+                row['feature_10']['0']['zgcpwsw']):
+            tags.append(u'企业存在诉讼文书')
         return {
             risk_name: tags
         }
  
-    def get_all_nums(feature_name):
-        return sum(
-            map(
-                sum, 
-                [v.asDict().values() 
-                     for k ,v in row[feature_name].asDict().iteritems() 
-                     if k in ['0', '1', '2', '3']]))
-    def get_some_nums(feature_name, value_name):
+    def get_all_nums(feature_name, value_names, distances=['1', '2', '3']):
+        return sum([v.asDict().get(each_value_name, 0)
+                     for k ,v in row[feature_name].asDict().iteritems()
+                     for each_value_name in value_names
+                     if k in distances])
+    def get_some_nums(feature_name, value_name, distances=['1', '2', '3']):
         return sum([
-                v.asDict().get(value_name, 0) 
-                for k, v in row[feature_name].asDict().iteritems() 
-                if k in ['0', '1', '2', '3']])
-    def get_static_organization_relationship_risk(risk_name=u'机构关联方风险'):
+                v.asDict().get(value_name, 0)
+                for k, v in row[feature_name].asDict().iteritems()
+                if k in distances])
+    def get_pe_static_relationship_risk(risk_name=u'静态关联方风险'):
         tags = []
-        if get_all_nums('feature_10') >= 8 :
-            tags.append(u'关联方诉讼文书数量较多')
-        if get_some_nums('feature_11', 'xzcf'):
-            tags.append(u'关联方存在受行政处罚企业')
-        if get_some_nums('feature_12', 'zhixing'):
-            tags.append(u'关联方存在被执行人企业数量较多')
-        if get_some_nums('feature_12', 'dishonesty'):
+        if get_some_nums('feature_10', 'lending_1'):
+            tags.append(u'关联方存在涉“民间借贷”类诉讼企业')
+        if get_some_nums('feature_12', 'dishonesty_1'):
             tags.append(u'关联方存在失信被执行人企业')
+        if get_some_nums('feature_12', 'zhixing_1'):
+            tags.append(u'关联方存在被执行人企业')
         if get_some_nums('feature_13', 'estatus'):
             tags.append(u'关联方存在吊销企业')
-        if get_some_nums('feature_13', 'jyyc'):
+        if get_some_nums('feature_11', 'xzcf_1', distances=['1', '2']):
+            tags.append(u'关联方存在受行政处罚企业')
+        if get_some_nums('feature_13', 'jyyc_1', distances=['1', '2']):
             tags.append(u'关联方存在经营异常企业')
-        if get_some_nums('feature_14', 'circxzcf'):
-            tags.append(u'关联方存在银监会行政处罚企业')            
-        if row['feature_8']['t_2'] and row['feature_8']['t_2'] <= 365:
+        if get_all_nums('feature_10', 
+                        ['ktgg_1', 'rmfygg_1', 'zgcpwsw_1'],
+                        distances=['1', '2']) >= 10:
+            tags.append(u'关联方涉诉企业较多')
+        if row['feature_8']['t_2'] and row['feature_8']['t_2'] <= 800:
             tags.append(u'法人关联方平均成立时间较短')
-        if row['feature_15']['x_1'] >= 10:
-            tags.append(u'单个关联自然人中最大投资企业数量较多')
-        if row['feature_15']['x_2'] >= 30:
+        if row['feature_15']['x_1'] >= 20:
+            tags.append(u'单个关联自然人最大投资企业数量较多')
+        if row['feature_15']['x_2'] >= 40:
             tags.append(u'单个关联法人最大投资企业数量较多')
-        if (row['feature_16']['y_1'] + row['feature_16']['y_2'] + 
-               row['feature_16']['y_3']) >= 30:
-            tags.append(u'关联方中自然人数量较多')
-        if sum([
-                v 
-                for k ,v in row['feature_20'].asDict().iteritems() 
-                if k != 'g']) >= 5:
-            tags.append(u'风险行业关联企业数量较多')
-        if row['feature_21']['n'] >= 3:
-            tags.append(u'关联企业中地址相同公司较多')
+        if ((row['feature_16']['y_1'] + row['feature_16']['y_2']) /
+               (row['feature_16']['x_1'] + row['feature_16']['x_2'] + 
+                0.01)) >= 1.:
+            tags.append(u'关联方中自然人比例较高')
+        if row['feature_21']['n']:
+            tags.append(u'关联企业中存在地址相同企业')
         if (row['feature_23']['b_1'] + row['feature_23']['b_2'] + 
-                row['feature_23']['b_3']) :
+            row['feature_23']['b_3']):
             tags.append(u'关联方中存在黑名单企业')
-        return tags
+        return {
+            risk_name: tags
+        }
 
-    def get_dynamic_organization_relationship_risk(risk_name=u'机构关联方风险'):
+    def pe_dynamic_relationship_risk(risk_name=u'动态关联方风险'):
         tags = []
-        if (row['feature_24']['x_1'] + row['feature_24']['x_2'] +
-                row['feature_24']['x_3']) >= 5:
-            tags.append(u'关联方新成立子公司数量较多')
-        if abs(row['feature_26']['x']-row['feature_26']['y']) >= 6:
-            tags.append(u'核心自然人控制节点数量变化较大')
-        if abs(row['feature_27']['x']-row['feature_27']['y']) >= 0.1:
-            tags.append(u'利益一致行动法人占比变化较大')
-        if abs(row['feature_28']['x']-row['feature_28']['y']) >= 5:
-            tags.append(u'关联方聚集区域关联节点数量变化较大')
-        return tags
-        
+        if row['feature_26']['a_1'] > 2 or row['feature_26']['a_1'] < -0.7:
+            tags.append(u'近三个月内自然人关联节点变动较大')
+        if row['feature_26']['a_4'] > 0.1 or row['feature_26']['a_4'] < -0.1:
+            tags.append(u'近三个月内对外投资公司数量变动较大')
+        if row['feature_26']['a_5'] > 0.5:
+            tags.append(u'近三个月内公司分支机构数量变动较大')
+        if row['feature_26']['a_6'] > 0.5:
+            tags.append(u'近三个月内利益一致行动法人的数量变动较大')
+        if row['feature_26']['c_1'] > 1 or row['feature_26']['c_1'] < -0.5:
+            tags.append(u'近三个月内低学历招聘人数变动较大')
+        if row['feature_26']['d_2'] > 2 or row['feature_26']['d_2'] < -0.7:
+            tags.append(u'近三个月内3度及3度以下核心自然人（前3）控制节点总数变动较大')
+        return {
+            risk_name: tags
+        }
+
     result = {}
-    result.update(get_pe_compliance_risk())
-    result.update(get_pe_strength_risk())
-    result.update(get_pe_management_risk())
+    result.update(get_pe_trading_exchange_risk())
+
     if row['feature_1']:
-        result.update(get_organization_management_risk())
+        result.update(get_pe_company_risk())
+        result.update(get_pe_trading_risk())
+        result.update(get_pe_static_relationship_risk())
     else:
-        result.update({u'管理机构风险': []})
-    if (row['feature_25'] and row['feature_26'] and 
-            row['feature_27'] and row['feature_28']):
-        static_tags = get_static_organization_relationship_risk()
-        dynamic_tags = get_dynamic_organization_relationship_risk()
-        result[u'机构关联方风险'] = static_tags + dynamic_tags
-    elif row['feature_1']:
-        result[u'机构关联方风险'] = get_static_organization_relationship_risk()
+        result.update({u'综合实力风险': []})
+        result.update({u'企业行为风险': []})
+        result.update({u'静态关联方风险': []})
+        
+        
+    if row['feature_26']:
+        result.update(pe_dynamic_relationship_risk())
     else:
-        result[u'机构关联方风险'] = []
+        result.update({u'动态关联方风险': []}) 
 
     final_out_dict = {
         '--': result
