@@ -4,6 +4,8 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
+--driver-memory 15g \
+--queue project.hongjing \
 some_company_relation_info.py {version}
 '''
 

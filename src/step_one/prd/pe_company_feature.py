@@ -4,6 +4,7 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
+--queue project.hongjing \
 pe_company_feature.py {version}
 
 '''

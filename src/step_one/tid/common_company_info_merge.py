@@ -5,6 +5,7 @@
 --master yarn \
 --deploy-mode client \
 --driver-memory 15g \
+--queue project.hongjing \
 common_company_info_merge.py {version}
 '''
 

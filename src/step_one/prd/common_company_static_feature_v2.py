@@ -4,6 +4,7 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
+--queue project.hongjing \
 common_company_static_feature_v2.py {version}
 '''
 import sys

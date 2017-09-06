@@ -6,6 +6,7 @@
 --deploy-mode client \
 --driver-class-path /usr/share/java/mysql-connector-java-5.1.39.jar \
 --jars /usr/share/java/mysql-connector-java-5.1.39.jar \
+--queue project.hongjing \
 ra_high_company.py
 '''
 import os

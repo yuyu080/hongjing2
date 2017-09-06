@@ -5,6 +5,7 @@
 --master yarn \
 --deploy-mode client \
 --driver-memory 15g \
+--queue project.hongjing \
 all_data_preparation.py {version}
 '''
 
