@@ -4,6 +4,7 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
+--queue project.hongjing \
 p2p_company_feature.py {version}
 
 '''
@@ -80,9 +81,9 @@ def spark_data_flow():
         'company_name',
         'platform_name',
         'platform_state',
-        get_claim_transfer_udf('claim_transfer').alias('p2p_feature_17'),
-        get_bank_custody_udf('bank_custody').alias('p2p_feature_18'),
-        get_risk_reserve_udf('risk_reserve').alias('p2p_feature_19')
+        get_claim_transfer_udf('claim_transfer').alias('p2p_feature_18'),
+        get_bank_custody_udf('bank_custody').alias('p2p_feature_19'),
+        get_risk_reserve_udf('risk_reserve').alias('p2p_feature_20')
     )
     
     platform_df = spark.sql(
@@ -105,6 +106,7 @@ def spark_data_flow():
         ,loan_balance 
         ,per_borrowing_amount 
         ,borrowing_dispersion 
+        ,total_num_of_borrower
         FROM
         dw.qyxg_platform_data
         WHERE
@@ -124,8 +126,6 @@ def spark_data_flow():
         json_to_obj_udf(
             'monthly_deal_data'
         ).getItem('num_of_lender').alias('p2p_feature_2'),
-        json_to_obj_udf(
-            'monthly_deal_data'),
         fun.when(
             platform_df.platform_state == u'异常', 0
         ).when(
@@ -148,6 +148,7 @@ def spark_data_flow():
         json_to_obj_udf(
             'monthly_deal_data'
         ).getItem('nominal_interest_rate').alias('p2p_feature_16'),
+        get_float_udf('total_num_of_borrower').alias('p2p_feature_17')
     )
     
     prd_platform_df = tid_platform_df.join(
@@ -188,13 +189,14 @@ def spark_data_flow():
         'p2p_feature_14',
         'p2p_feature_15',
         'p2p_feature_16',
-        tid_wdzj_df.p2p_feature_17,
+        'p2p_feature_17',
         tid_wdzj_df.p2p_feature_18,
-        tid_wdzj_df.p2p_feature_19
+        tid_wdzj_df.p2p_feature_19,
+        tid_wdzj_df.p2p_feature_20
     ).dropDuplicates(
         ['bbd_qyxx_id', 'platform_name']
     ).fillna(
-        0
+        0.
     )
     
     return prd_platform_df
