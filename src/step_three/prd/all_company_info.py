@@ -4,6 +4,7 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
+--queue project.hongjing \
 all_company_info.py {version}
 '''
 import sys
@@ -188,11 +189,6 @@ def spark_data_flow():
     
     #获取目标公司的相关信息
     #这里计算流程较长，为了就是获取风险关联企业：
-    relation_df_one = spark.read.parquet(
-        ("{path}"
-         "/common_company_info_merge"
-         "/{version}").format(path=IN_PATH_THREE,
-                              version=RELATION_VERSION))
     relation_df_two = spark.read.parquet(
         ("{path}"
          "/common_company_info_merge_v2"
@@ -210,14 +206,9 @@ def spark_data_flow():
         ['bbd_qyxx_id']
     )
     
-    tmp_df = relation_df_one.select(
+    tmp_df = relation_df_two.select(
         'a', 'b', 'c', 'b_isperson', 
         'c_isperson', 'a_name', 'b_name', 'c_name'
-    ).union(
-        relation_df_two.select(
-            'a', 'b', 'c', 'b_isperson', 
-            'c_isperson', 'a_name', 'b_name', 'c_name'
-        )
     ).dropDuplicates(
        [ 'a', 'b', 'c']
     ).select(
@@ -263,67 +254,37 @@ def spark_data_flow():
         'sum(is_high)', 'relation_high_num'
     ).cache()
     
-    common_static_feature_df_one = spark.read.json(
-        ("{path}"
-         "/common_static_feature_distribution"
-         "/{version}").format(path=IN_PATH_FOUR,
-                              version=RELATION_VERSION))
     common_static_feature_df_two = spark.read.json(
         ("{path}"
          "/common_static_feature_distribution_v2"
          "/{version}").format(path=IN_PATH_FOUR,
                               version=RELATION_VERSION))
-    common_static_feature_df = common_static_feature_df_one.select(
-        common_static_feature_df_one.bbd_qyxx_id,
-        common_static_feature_df_one.company_name,
-        (common_static_feature_df_one.feature_6.getItem('c_1') + 
-        common_static_feature_df_one.feature_6.getItem('c_2') +
-        common_static_feature_df_one.feature_6.getItem('c_3') +
-        common_static_feature_df_one.feature_6.getItem('c_4') +
-        common_static_feature_df_one.feature_6.getItem('c_5') +
-        common_static_feature_df_one.feature_6.getItem('c_6') 
+    common_static_feature_df = common_static_feature_df_two.select(
+        common_static_feature_df_two.bbd_qyxx_id,
+        common_static_feature_df_two.company_name,
+        (common_static_feature_df_two.feature_6.getItem('c_1') + 
+        common_static_feature_df_two.feature_6.getItem('c_2') +
+        common_static_feature_df_two.feature_6.getItem('c_3') +
+        common_static_feature_df_two.feature_6.getItem('c_4') +
+        common_static_feature_df_two.feature_6.getItem('c_5') +
+        common_static_feature_df_two.feature_6.getItem('c_6') 
         ).alias('gsbg'),
-        (common_static_feature_df_one.feature_10.getItem('0').getItem('ktgg') +
-        common_static_feature_df_one.feature_10.getItem('0').getItem('rmfygg') +
-        common_static_feature_df_one.feature_10.getItem('0').getItem('zgcpwsw')
+        (common_static_feature_df_two.feature_10.getItem('0').getItem('ktgg') +
+        common_static_feature_df_two.feature_10.getItem('0').getItem('rmfygg') +
+        common_static_feature_df_two.feature_10.getItem('0').getItem('zgcpwsw')
         ).alias('ssxx'),
-        (common_static_feature_df_one.feature_11.getItem('0').getItem('xzcf') +
-        common_static_feature_df_one.feature_14.getItem('0').getItem('circxzcf')
+        (common_static_feature_df_two.feature_11.getItem('0').getItem('xzcf') +
+        common_static_feature_df_two.feature_14.getItem('0').getItem('circxzcf')
         ).alias('xzcf'),
-        (common_static_feature_df_one.feature_12.getItem('0').getItem('dishonesty') +
-        common_static_feature_df_one.feature_12.getItem('0').getItem('zhixing')
+        (common_static_feature_df_two.feature_12.getItem('0').getItem('dishonesty') +
+        common_static_feature_df_two.feature_12.getItem('0').getItem('zhixing')
         ).alias('sxxx'),
-        (common_static_feature_df_one.feature_13.getItem('0').getItem('jyyc')
+        (common_static_feature_df_two.feature_13.getItem('0').getItem('jyyc')
         ).alias('jyyc'),
-        (common_static_feature_df_one.feature_18.getItem('d')
+        (common_static_feature_df_two.feature_18.getItem('d')
         ).alias('fzjg')
-    ).union(
-        common_static_feature_df_two.select(
-            common_static_feature_df_two.bbd_qyxx_id,
-            common_static_feature_df_two.company_name,
-            (common_static_feature_df_two.feature_6.getItem('c_1') + 
-            common_static_feature_df_two.feature_6.getItem('c_2') +
-            common_static_feature_df_two.feature_6.getItem('c_3') +
-            common_static_feature_df_two.feature_6.getItem('c_4') +
-            common_static_feature_df_two.feature_6.getItem('c_5') +
-            common_static_feature_df_two.feature_6.getItem('c_6') 
-            ).alias('gsbg'),
-            (common_static_feature_df_two.feature_10.getItem('0').getItem('ktgg') +
-            common_static_feature_df_two.feature_10.getItem('0').getItem('rmfygg') +
-            common_static_feature_df_two.feature_10.getItem('0').getItem('zgcpwsw')
-            ).alias('ssxx'),
-            (common_static_feature_df_two.feature_11.getItem('0').getItem('xzcf') +
-            common_static_feature_df_two.feature_14.getItem('0').getItem('circxzcf')
-            ).alias('xzcf'),
-            (common_static_feature_df_two.feature_12.getItem('0').getItem('dishonesty') +
-            common_static_feature_df_two.feature_12.getItem('0').getItem('zhixing')
-            ).alias('sxxx'),
-            (common_static_feature_df_two.feature_13.getItem('0').getItem('jyyc')
-            ).alias('jyyc'),
-            (common_static_feature_df_two.feature_18.getItem('d')
-            ).alias('fzjg')
-        )
     )
+    
     
     raw_xgxx_info = common_static_feature_df.join(
         tmp_3_df,
