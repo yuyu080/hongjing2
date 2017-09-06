@@ -216,7 +216,7 @@ OUT_PATH = /user/antifraud/hongjing2/dataflow/step_three/tid/
 
 
 
-[nf_feature_preprocessing]
+[feature_preprocessing]
 
 OUT_PATH = /user/antifraud/hongjing2/dataflow/step_two/tid/
 
