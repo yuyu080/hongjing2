@@ -4,6 +4,7 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
+--queue project.hongjing \
 p2p_feature_merge.py
 '''
 import os
@@ -43,16 +44,20 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
     '''
     static_df = spark.read.json(        
         "{path}/"
-        "common_static_feature_distribution/{version}".format(path=IN_PAHT, 
-                                                              version=static_version))
+        "common_static_feature_distribution_v2/"
+        "{version}".format(path=IN_PAHT,
+                           version=static_version))
     dynamic_df = spark.read.json(
         "{path}/"
-        "common_dynamic_feature_distribution/{version}".format(path=IN_PAHT, 
-                                                               version=dynamic_version))
+        "common_dynamic_feature_distribution_v2/"
+        "{version}".format(path=IN_PAHT, 
+                           version=dynamic_version))
     p2p_df = spark.read.json(
         "{path}/"
-        "p2p_feature_distribution/{version}".format(path=IN_PAHT, 
-                                                    version=relation_version))
+        "p2p_feature_distribution/"
+        "{version}".format(path=IN_PAHT, 
+                           version=relation_version))
+    
     raw_df = p2p_df.join(
         static_df,
         static_df.bbd_qyxx_id == p2p_df.bbd_qyxx_id,
@@ -86,7 +91,6 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
         ,'p2p_feature_18'
         ,'p2p_feature_19'
         ,'p2p_feature_20'
-        ,'p2p_feature_21'
         ,'feature_1'
         ,'feature_2'
         ,'feature_3'
@@ -113,8 +117,6 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
         ,'feature_24'
         ,'feature_25'
         ,'feature_26'
-        ,'feature_27'
-        ,'feature_28'
     )
     
     return raw_df

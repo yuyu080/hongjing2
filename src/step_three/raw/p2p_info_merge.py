@@ -4,6 +4,7 @@
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
+--queue project.hongjing \
 p2p_info_merge.py {version}
 '''
 import sys
@@ -18,14 +19,14 @@ from pyspark.sql import types as tp
 from pyspark.sql import Row
 
 def get_json_obj(row):
-    '''将一级指标分平台合在一起，问题平台直接打100分'''
+    '''将一级指标分平台合在一起'''
     
     name_mapping = {
-        'p2p_platform_compliance_risk': u'平台合规性风险',
-        'p2p_reputation_risk': u'企业诚信风险',
-        'p2p_company_strength_risk': u'综合实力风险',
-        'p2p_trading_feature_risk': u'交易指标风险',
-        'p2p_relationship_risk': u'平台关联方风险',
+        'p2p_trading_exchange_risk': u'网络借贷行业风险',
+        'p2p_company_risk': u'综合实力风险',
+        'p2p_static_relationship_risk': u'静态关联方风险',
+        'p2p_dynamic_relationship_risk': u'动态关联方风险',
+        'p2p_trading_risk': u'企业行为风险',
     }    
 
     #单个p2p平台的风险分布
