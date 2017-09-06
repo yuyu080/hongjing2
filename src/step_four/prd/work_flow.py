@@ -14,6 +14,7 @@ def execute_some_step(step_name, step_child_name, file_name, version):
         --driver-memory 15g \
         --jars /usr/share/java/mysql-connector-java-5.1.39.jar \
         --driver-class-path /usr/share/java/mysql-connector-java-5.1.39.jar \
+        --queue project.hongjing \
         {path}/{step_child_name}/{file_name} {version}
         '''.format(path=IN_PATH+step_name, 
                    step_child_name=step_child_name,
@@ -55,33 +56,16 @@ def step_one(step_child_name, old_version, new_version):
 
     if step_child_name == 'tid':
         result = execute_some_step('step_one', step_child_name, 
-                                   'common_company_info_merge.py', new_version)
-        is_success(result, 'step_one', step_child_name, 
-                   'common_company_info_merge.py', new_version)
-        result = execute_some_step('step_one', step_child_name, 
                                    'common_company_info_merge_v2.py', new_version)
         is_success(result, 'step_one', step_child_name, 
                    'common_company_info_merge_v2.py', new_version)
 
     if step_child_name == 'prd':
         result_one = execute_some_step('step_one', step_child_name, 
-                                       'common_company_static_feature.py', 
-                                       new_version)
-        is_success(result_one, 'step_one', step_child_name, 
-                   'common_company_static_feature.py', new_version)
-
-        result_one = execute_some_step('step_one', step_child_name, 
                                        'common_company_static_feature_v2.py', 
                                        new_version)
         is_success(result_one, 'step_one', step_child_name, 
                    'common_company_static_feature_v2.py', new_version)
-
-        result_two = execute_some_step('step_one', step_child_name, 
-                                       'common_company_dynamic_feature.py', 
-                                       old_version + ' ' +new_version)
-        is_success(result_two, 'step_one', step_child_name, 
-                   'common_company_dynamic_feature.py', 
-                   old_version + ' ' + new_version)
         
         result_two = execute_some_step('step_one', step_child_name, 
                                        'common_company_dynamic_feature_v2.py', 
@@ -366,5 +350,5 @@ if __name__ == '__main__':
     URL = conf.get('mysql', 'URL')
     PROP = eval(conf.get('mysql', 'PROP'))
 
-    #run(is_history_back=False)
+    run(is_history_back=False)
     into_mysql(NEW_VERSION)
