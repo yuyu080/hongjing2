@@ -5,6 +5,7 @@
 --master yarn \
 --deploy-mode client \
 --driver-memory 15g \
+--queue project.hongjing \
 common_company_info_merge_v2.py {version}
 '''
 
@@ -259,7 +260,7 @@ def raw_spark_data_flow():
         'a'    
     ).count(
     ).where(
-        'count < 100000'
+        'count < 55000'
     )
     tmp_df_1.coalesce(
         100
@@ -984,7 +985,7 @@ def prd_spark_data_flow():
         "{path}/"
         "tid_df/{version}".format(version=RELATION_VERSION,
                                   path=TMP_PATH))
-    
+
     sample_df = spark.read.parquet(
         get_read_path(file_name='ljr_sample', 
                       version=LEIJINRONG_VERSION))
@@ -1041,6 +1042,7 @@ def prd_spark_data_flow():
         sample_df.company_name.alias('a_name'),
         'b_name', 'c_name'
     )
+    
     ##目标公司信息
     tid_company_merge_df = tid_company_merge_df.join(
         tid_company_info_df,
@@ -1071,6 +1073,7 @@ def prd_spark_data_flow():
         tid_company_info_df.bgxx_capital.alias('a_bgxx_capital'),
         tid_company_info_df.is_common_interests.alias('a_is_common_interests'),
         tid_company_info_df.is_common_address.alias('a_is_common_address')
+    ).cache(
     )
     #投资方信息
     tid_company_merge_df = tid_company_merge_df.join(
@@ -1111,6 +1114,7 @@ def prd_spark_data_flow():
         tid_company_info_df.zgcpwsw_specific.alias('b_zgcpwsw_specific'),
         tid_company_info_df.is_common_interests.alias('b_is_common_interests'),
         tid_company_info_df.is_common_address.alias('b_is_common_address')
+    ).cache(
     )
     #被投资方信息
     tid_company_merge_df = tid_company_merge_df.join(
@@ -1158,6 +1162,7 @@ def prd_spark_data_flow():
         tid_company_info_df.zgcpwsw_specific.alias('c_zgcpwsw_specific'),
         tid_company_info_df.is_common_interests.alias('c_is_common_interests'),
         tid_company_info_df.is_common_address.alias('c_is_common_address')
+    ).cache(
     )
 
     os.system(
@@ -1167,7 +1172,9 @@ def prd_spark_data_flow():
         "{version}".format(version=RELATION_VERSION,
                            path=OUT_PATH))
     
-    tid_company_merge_df.repartition(300).write.parquet(
+    tid_company_merge_df.repartition(
+        50
+    ).write.parquet(
         "{path}/"
         "common_company_info_merge_v2/"
         "{version}".format(version=RELATION_VERSION,
@@ -1187,10 +1194,10 @@ def get_spark_session():
     conf.set("spark.yarn.am.cores", 15)
     conf.set("spark.executor.memory", "70g")
     conf.set("spark.executor.instances", 25)
-    conf.set("spark.executor.cores", 10)
+    conf.set("spark.executor.cores", 15)
     conf.set("spark.python.worker.memory", "3g")
-    conf.set("spark.default.parallelism", 6000)
-    conf.set("spark.sql.shuffle.partitions", 6000)
+    conf.set("spark.default.parallelism", 3000)
+    conf.set("spark.sql.shuffle.partitions", 3000)
     conf.set("spark.broadcast.blockSize", 1024)
     conf.set("spark.sql.crossJoin.enabled", True)
     conf.set("spark.executor.extraJavaOptions",
@@ -1246,7 +1253,7 @@ if __name__ == "__main__":
     OUT_PATH = conf.get('common_company_info_merge', 'OUT_PATH')
     TMP_PATH = conf.get('common_company_info_merge', 'TMP_PATH')
 
-    #TYPE_LR_LIST中的企业将使用LR模型
+    #TYPE_LR_LIST中的企业使用LR模型
     TYPE_LR_LIST = conf.get('input_sample_data', 'TYPE_LR_LIST')
 
     #sparkSession
