@@ -25,7 +25,7 @@ def get_dynamic_risk(data):
     def get_result(my_denominator, my_numerator):
         '''特殊计算规则，嘻嘻'''
         if not denominator and  numerator:
-            result = 65535.
+            result = 1.
         elif not denominator and  not numerator:
             result = 0.
         else:
