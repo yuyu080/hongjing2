@@ -1322,7 +1322,7 @@ def spark_data_flow(tidversion):
     @fault_tolerant
     def time_out(data):
         signal.signal(signal.SIGALRM, handler)
-        signal.alarm(3000)
+        signal.alarm(1000)
         result = FeatureConstruction.get_some_feature(
             data,[_ for _ in range(1, 26)])
         signal.alarm(0)
