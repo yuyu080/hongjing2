@@ -124,6 +124,13 @@ def step_two(version):
                'ex_feature_merge.py', 
                version)
     
+    result_three_one = execute_some_step('step_two', 'tid', 
+                                         'ex_feature_preprocessing.py',
+                                         version)
+    is_success(result_three_one, 'step_two', 'tid', 
+               'ex_feature_preprocessing.py', 
+               version)    
+    
     result_four = execute_some_step('step_two', 'prd', 
                                    'ex_risk_score.py',
                                    version)
@@ -138,6 +145,13 @@ def step_two(version):
                'p2p_feature_merge.py', 
                version)
     
+    result_five_one = execute_some_step('step_two', 'tid', 
+                                        'p2p_feature_preprocessing.py',
+                                        version)
+    is_success(result_five_one, 'step_two', 'tid', 
+               'p2p_feature_preprocessing.py', 
+               version)
+    
     result_six = execute_some_step('step_two', 'prd', 
                                    'p2p_risk_score.py',
                                    version)
@@ -150,6 +164,13 @@ def step_two(version):
                                     version)
     is_success(result_seven, 'step_two', 'raw', 
                'pe_feature_merge.py', 
+               version)
+    
+    result_seven_one = execute_some_step('step_two', 'tid', 
+                                         'pe_feature_preprocessing.py',
+                                         version)
+    is_success(result_seven_one, 'step_two', 'tid', 
+               'pe_feature_preprocessing.py', 
                version)
     
     result_eight = execute_some_step('step_two', 'prd', 
