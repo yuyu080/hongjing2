@@ -5,6 +5,7 @@
 --master yarn \
 --deploy-mode client \
 --driver-memory 15g \
+--driver-cores 15 \
 --queue project.hongjing \
 all_info_merge.py {version}
 '''
@@ -26,12 +27,12 @@ def get_spark_session():
     conf = SparkConf()
     conf.setMaster('yarn-client')
     conf.set("spark.yarn.am.cores", 7)
-    conf.set("spark.executor.memory", "60g")
+    conf.set("spark.executor.memory", "70g")
     conf.set("spark.executor.instances", 20)
     conf.set("spark.executor.cores", 15)
-    conf.set("spark.python.worker.memory", "2g")
-    conf.set("spark.default.parallelism", 4000)
-    conf.set("spark.sql.shuffle.partitions", 4000)
+    conf.set("spark.python.worker.memory", "3g")
+    conf.set("spark.default.parallelism", 6000)
+    conf.set("spark.sql.shuffle.partitions", 6000)
     conf.set("spark.broadcast.blockSize", 1024)   
     conf.set("spark.shuffle.file.buffer", '512k')
     conf.set("spark.speculation", True)
@@ -213,6 +214,23 @@ def spark_data_flow(tidversion):
     ).cache(
     )
 
+    #中间数据落地
+    os.system(
+        ("hadoop fs -rmr " 
+         "{path}/tid_info_merge/{version} ").format(path=TMP_PATH,
+                                                    version=RELATION_VERSION)
+    )
+    tid_info_merge.coalesce(
+        100
+    ).write.parquet(
+         "{path}/"
+         "tid_info_merge/{version}".format(version=RELATION_VERSION,
+                                           path=TMP_PATH))
+    tid_info_merge = spark.read.parquet(
+         "{path}/"
+         "tid_info_merge/{version}".format(version=RELATION_VERSION,
+                                           path=TMP_PATH))
+
     #构建属性图
     tid_relation_2_df = relation_df.join(
         tid_info_merge,
@@ -349,7 +367,7 @@ if __name__ == '__main__':
     IN_PATH_TWO = "/user/antifraud/hongjing2/dataflow/step_three/prd/"
     IN_PATH_THREE = "/user/antifraud/hongjing2/dataflow/step_four/tid/raw/"
     OUT_PATH = "/user/antifraud/hongjing2/dataflow/step_four/tid/tid/"
-
+    TMP_PATH = "/user/antifraud/hongjing2/dataflow/step_four/tid/tmp/"
     
     spark = get_spark_session()
 
