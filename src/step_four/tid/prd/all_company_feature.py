@@ -374,16 +374,29 @@ class FeatureConstruction(object):
     @classmethod
     def get_feature_5(cls):
         '''
-        关联方与目标公司地址相同
+        关联方地址相同
         '''
         def get_certain_distance_info(distance, return_name): 
-            return [
-                attr['name'] if return_name else 1
+            legal_person_address = {
+                attr['name']: attr['address']
                 for node, attr in cls.DIG.nodes_iter(data=True)
                 if attr['distance'] <= distance
-                and cls.DIG.has_node(cls.tarcompany)
-                and node != cls.tarcompany
-                and cls.DIG.node[cls.tarcompany]['address'] == attr['address']]
+                and attr['is_human'] == 0}
+                            
+            c = Counter(filter(lambda x: x is not None and len(x) >= 21,
+                               legal_person_address.values()))
+            n = c.most_common(1)
+            common_address_num = n[0][1] if len(n) > 0 else 0
+            common_address_name = n[0][0] if len(n) > 0 else ''
+            
+            if return_name:
+                return [
+                    company_name 
+                    for company_name, address 
+                    in legal_person_address.iteritems()
+                    if address == common_address_name]
+            else:
+                return common_address_num
         
         same_address_num = {'{0}d_same_address_num'.format(each_distance): 
                             sum(get_certain_distance_info(each_distance, False))
@@ -680,7 +693,7 @@ def spark_data_flow(tidversion):
     @fault_tolerant
     def time_out(data):
         signal.signal(signal.SIGALRM, handler)
-        signal.alarm(3000)
+        signal.alarm(1000)
         result = FeatureConstruction.get_some_feature(
             data,[_ for _ in range(1, 8)])
         signal.alarm(0)
@@ -710,8 +723,7 @@ def run():
         ("{path}/"
         "all_company_feature"
         "/{version}").format(path=OUT_PATH, 
-                             version=RELATION_VERSION),
-        compressionCodecClass='org.apache.hadoop.io.compress.GzipCodec')
+                             version=RELATION_VERSION))
     
 
 if __name__ == '__main__':  
