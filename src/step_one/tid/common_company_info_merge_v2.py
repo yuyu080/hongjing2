@@ -260,7 +260,7 @@ def raw_spark_data_flow():
         'a'    
     ).count(
     ).where(
-        'count < 55000'
+        'count < 50000'
     )
     tmp_df_1.coalesce(
         100
