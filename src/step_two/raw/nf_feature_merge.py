@@ -60,7 +60,7 @@ def spark_data_flow(static_version, dynamic_version):
     #这里需要一个样本df,
     #将某些类型的企业选出来分别打分
     some_type_df = sample_df.where(
-        sample_df.company_type.isin(TYPE_LIST)
+        sample_df.company_type.isin(TYPE_NF_LIST)
     )
 
     feature_df = static_df.join(
@@ -102,7 +102,7 @@ if __name__ == '__main__':
     conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
     
     #输入参数
-    TYPE_LIST = eval(conf.get('input_sample_data', 'TYPE_LIST'))
+    TYPE_NF_LIST = eval(conf.get('input_sample_data', 'TYPE_NF_LIST'))
     RELATION_VERSION = sys.argv[1]
     
     IN_PAHT = conf.get('common_company_feature', 'OUT_PATH')

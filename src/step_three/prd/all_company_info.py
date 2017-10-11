@@ -75,7 +75,7 @@ def raw_spark_data_flow():
     tmp_pe_df = sample_df.where(sample_df.company_type == u'私募基金')
     tmp_ex_df = sample_df.where(sample_df.company_type == u'交易场所')
     tmp_nf_df = sample_df.where(
-        sample_df.company_type.isin(TYPE_LIST)
+        sample_df.company_type.isin(TYPE_NF_LIST)
     )
  
     #确保一个公司只会存在一个company_type
@@ -386,7 +386,7 @@ if __name__ == '__main__':
     conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
     
     #输入参数
-    TYPE_LIST = eval(conf.get('input_sample_data', 'TYPE_LIST'))
+    TYPE_NF_LIST = eval(conf.get('input_sample_data', 'TYPE_NF_LIST'))
     HIGH_RISK_RATIO = conf.getfloat('all_company_info', 'HIGH_RISK_RATIO')
     MIDDLE_RISK_RATIO = conf.getfloat('all_company_info', 'MIDDLE_RISK_RATIO')
     RELATION_VERSION = sys.argv[1]
