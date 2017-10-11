@@ -149,7 +149,7 @@ def get_id():
     
 def raw_spark_data_flow():
     #注册所有需要用到的udf
-    get_xedk_udf = fun.udf(get_rzdb, tp.IntegerType())
+    get_xedk_udf = fun.udf(get_xedk, tp.IntegerType())
     get_rzdb_udf = fun.udf(get_rzdb, tp.IntegerType())
     get_jycs_udf = fun.udf(get_jycs, tp.IntegerType())
     get_smjj_udf = fun.udf(get_smjj, tp.IntegerType())
