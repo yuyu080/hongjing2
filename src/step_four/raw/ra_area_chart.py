@@ -76,6 +76,8 @@ def get_wdzj_df(version):
         WHERE
         dt='{version}'
         '''.format(version=version)
+    ).dropDuplicates(
+        ['bbd_qyxx_id']   
     )
     
     return raw_df
@@ -121,6 +123,8 @@ def get_smjj_df(version):
         WHERE
         dt='{version}'
         '''.format(version=version)
+    ).dropDuplicates(
+        ['bbd_qyxx_id']   
     )
     
     return raw_df
@@ -180,14 +184,16 @@ def avg(nums):
                            2) if f_nums else 0.    
 
 def get_exchange_type_num(col):
-    cont = Counter(col)
+    cont = Counter(
+        filter(lambda x: x and x != 'NULL' and x != 'null', col)
+    )
     top_five_info = cont.most_common(5)
     return json.dumps(dict(top_five_info), ensure_ascii=False)
 
 
 def get_trading_variety_num(col):
     obj = ','.join(col)
-    obj = filter(lambda x: x and x != 'NULL', obj.split(','))
+    obj = filter(lambda x: x and x != 'NULL' and x != 'null', obj.split(','))
     cont = Counter(obj)
     if cont:
         return json.dumps(dict(cont.most_common(5)), 
