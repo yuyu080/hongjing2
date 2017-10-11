@@ -391,7 +391,7 @@ def run():
          "{path}/"
          "ra_company/{version}").format(path=OUT_PATH, 
                                              version=NEW_VERSION))      
-    
+    #用0填充一个特殊字段： is_black
     prd_df.repartition(
         10
     ).rdd.map(
@@ -403,6 +403,7 @@ def run():
                 r.area,
                 r.company,
                 str(r.risk_index),
+                str(0),
                 r.risk_level,
                 str(r.risk_rise),
                 str(r.rise),
