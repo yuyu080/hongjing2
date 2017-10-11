@@ -126,7 +126,7 @@ def spark_data_flow(tidversion):
         'a'    
     ).count(
     ).where(
-        'count < 100000'
+        'count < 50000'
     )
     
     os.system(
