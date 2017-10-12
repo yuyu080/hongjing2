@@ -381,7 +381,9 @@ class FeatureConstruction(object):
                 attr['name']: attr['address']
                 for node, attr in cls.DIG.nodes_iter(data=True)
                 if attr['distance'] <= distance
-                and attr['is_human'] == 0}
+                and attr['is_human'] == 0
+                and attr['address']
+                and attr['name']}
                             
             c = Counter(filter(lambda x: x is not None and len(x) >= 21,
                                legal_person_address.values()))
@@ -399,7 +401,7 @@ class FeatureConstruction(object):
                 return common_address_num
         
         same_address_num = {'{0}d_same_address_num'.format(each_distance): 
-                            sum(get_certain_distance_info(each_distance, False))
+                            get_certain_distance_info(each_distance, False)
                             for each_distance in range(1, 4)}
         
         cls.same_address_name = {'{0}d_same_address_name'.format(each_distance): 
