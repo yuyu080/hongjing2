@@ -58,7 +58,19 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
         "{version}".format(path=IN_PATH_ONE, 
                            version=relation_version))
     
-    raw_df = ex_df.join(
+    sample_df = spark.read.parquet(
+         ("{path}"
+          "/ljr_sample/"
+          "{version}").format(path=IN_PATH_FOUR, 
+                              version=RELATION_VERSION))       
+    
+    raw_df = sample_df.where(
+        sample_df.company_type == u'交易场所'    
+    ).join(
+        ex_df,
+        ex_df.bbd_qyxx_id == sample_df.bbd_qyxx_id,
+        'left_outer'
+    ).join(
         static_df,
         static_df.bbd_qyxx_id == ex_df.bbd_qyxx_id,
         'left_outer'
@@ -99,6 +111,10 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
         ,'feature_24'
         ,'feature_25'
         ,'feature_26'
+    ).fillna(
+        0.    
+    ).fillna(
+        "-"
     )
     
     return raw_df
@@ -129,6 +145,7 @@ if __name__ == '__main__':
     IN_PATH_ONE = conf.get('common_company_feature', 'OUT_PATH')
     IN_PATH_TWO = conf.get('common_company_info', 'OUT_PATH')
     IN_PATH_THREE = conf.get('risk_score', 'OUT_PATH')
+    IN_PATH_FOUR = conf.get('input_sample_data', 'OUT_PATH')
     OUT_PATH = conf.get('feature_merge', 'OUT_PATH')
     
     spark = get_spark_session()

@@ -45,17 +45,19 @@ def spark_data_flow(static_version, dynamic_version):
     static_df = spark.read.json(        
         "{path}/"
         "common_static_feature_distribution_v2/"
-        "{version}".format(path=IN_PAHT, 
+        "{version}".format(path=IN_PATH_TWO, 
                            version=static_version))
     dynamic_df = spark.read.json(
         "{path}/"
         "common_dynamic_feature_distribution_v2/"
-        "{version}".format(path=IN_PAHT, 
+        "{version}".format(path=IN_PATH_TWO, 
                            version=dynamic_version))
 
     sample_df = spark.read.parquet(
-         ("/user/antifraud/hongjing2/dataflow/step_one/raw"
-          "/ljr_sample/{version}").format(version=RELATION_VERSION))
+         ("{path}"
+          "/ljr_sample/"
+          "{version}").format(path=IN_PATH_ONE, 
+                              version=RELATION_VERSION))
 
     #这里需要一个样本df,
     #将某些类型的企业选出来分别打分
@@ -105,7 +107,8 @@ if __name__ == '__main__':
     TYPE_NF_LIST = eval(conf.get('input_sample_data', 'TYPE_NF_LIST'))
     RELATION_VERSION = sys.argv[1]
     
-    IN_PAHT = conf.get('common_company_feature', 'OUT_PATH')
+    IN_PATH_ONE = conf.get('input_sample_data', 'OUT_PATH')
+    IN_PATH_TWO = conf.get('common_company_feature', 'OUT_PATH')
     OUT_PATH = conf.get('feature_merge', 'OUT_PATH')
     
     spark = get_spark_session()
