@@ -72,15 +72,15 @@ def spark_data_flow(static_version, dynamic_version, relation_version):
         'left_outer'
     ).join(
         static_df,
-        static_df.bbd_qyxx_id == p2p_df.bbd_qyxx_id,
+        static_df.bbd_qyxx_id == sample_df.bbd_qyxx_id,
         'left_outer'
     ).join(
         dynamic_df,
-        dynamic_df.bbd_qyxx_id == p2p_df.bbd_qyxx_id,
+        dynamic_df.bbd_qyxx_id == sample_df.bbd_qyxx_id,
         'left_outer'
     ).select(
-        p2p_df.bbd_qyxx_id
-        ,p2p_df.company_name
+        sample_df.bbd_qyxx_id
+        ,sample_df.company_name
         ,p2p_df.platform_name
         ,p2p_df.platform_state
         ,'p2p_feature_1'
