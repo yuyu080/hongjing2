@@ -20,7 +20,7 @@ from pyspark.sql import Row
 def get_tags(row):
     
     def get_pe_trading_exchange_risk(risk_name=u'私募基金行业风险'):
-        tags = []
+        tags = []        
         if row['pe_feature_5'] == 1:
             tags.append(u'部分高管无基金从业资格')
         if row['pe_feature_9'] == 0:
@@ -42,11 +42,11 @@ def get_tags(row):
         if (row['pe_feature_10'] + 
                 row['pe_feature_11']) == 0:
             tags.append(u'从未发行过基金产品')
-        if row['pe_feature_12']['info']:
+        if row['pe_feature_12']:
             tags.append(
                 u'机构诚信信息：'+ 
                 row['pe_feature_12']['info'].replace('null', ''))
-        if row['pe_feature_13']['special_info']:
+        if row['pe_feature_13']:
             tags.append(
                 u'特别提示信息：'+ 
                 row['pe_feature_13']['special_info'].replace('null', ''))

@@ -19,6 +19,15 @@ from pyspark.ml.feature import StandardScaler
      
 def get_vectors(row):
     '''根据原始数据的情况对特征集插值'''
+    if row['pe_feature_12']:
+        pe_feature_12_risk = row['pe_feature_12']['risk']
+    else:
+        pe_feature_12_risk = 0.
+    if row['pe_feature_13']:
+        pe_feature_13_risk = row['pe_feature_13']['risk']
+    else:
+        pe_feature_13_risk = 0.
+    
     if row['feature_26']:
         return (Vectors.dense([
                 row['pe_feature_1'],
@@ -32,8 +41,8 @@ def get_vectors(row):
                 row['pe_feature_9'],
                 row['pe_feature_10'],
                 row['pe_feature_11'],
-                row['pe_feature_12']['risk'],
-                row['pe_feature_13']['risk'],
+                pe_feature_12_risk,
+                pe_feature_13_risk,
                 row['feature_1']['r'],
                 row['feature_2']['c'],
                 row['feature_3']['z'],
@@ -83,8 +92,8 @@ def get_vectors(row):
                 row['pe_feature_9'],
                 row['pe_feature_10'],
                 row['pe_feature_11'],
-                row['pe_feature_12']['risk'],
-                row['pe_feature_13']['risk'],
+                pe_feature_12_risk,
+                pe_feature_13_risk,
                 row['feature_1']['r'],
                 row['feature_2']['c'],
                 row['feature_3']['z'],
@@ -134,8 +143,8 @@ def get_vectors(row):
                 row['pe_feature_9'],
                 row['pe_feature_10'],
                 row['pe_feature_11'],
-                row['pe_feature_12']['risk'],
-                row['pe_feature_13']['risk'],
+                pe_feature_12_risk,
+                pe_feature_13_risk,
                 0.,
                 0.,
                 0.,
