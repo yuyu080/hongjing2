@@ -59,7 +59,7 @@ TYPE_LR_LIST = [u'新兴金融', u'融资担保', u'小额贷款',
 TYPE_NF_LIST = [u'新兴金融', u'融资担保', u'小额贷款']
 #需要增加的白名单
 WHITE_TABLE_NAME = dw.qyxx_tag_white
-WHITE_TAGS_VERSION = 20170920 
+WHITE_TAGS_VERSION = 20171017 
 
 #需要过滤的数据版本
 BLACK_TABLE_NAME = dw.qyxx_tag_black
