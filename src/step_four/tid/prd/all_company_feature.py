@@ -374,31 +374,33 @@ class FeatureConstruction(object):
     @classmethod
     def get_feature_5(cls):
         '''
-        关联方地址相同
+        关联方地址与目标公司相同
         '''
         def get_certain_distance_info(distance, return_name): 
-            legal_person_address = {
-                attr['name']: attr['address']
+            tar_company_address = cls.DIG.node.get(
+                cls.tarcompany, {}
+            ).get(
+                'address', ''
+            )
+            
+            legal_person_address = [
+                attr['name']
                 for node, attr in cls.DIG.nodes_iter(data=True)
                 if attr['distance'] <= distance
-                and attr['is_human'] == 0
                 and attr['address']
-                and attr['name']}
-                            
-            c = Counter(filter(lambda x: x is not None and len(x) >= 21,
-                               legal_person_address.values()))
-            n = c.most_common(1)
-            common_address_num = n[0][1] if len(n) > 0 else 0
-            common_address_name = n[0][0] if len(n) > 0 else ''
+                and attr['name']
+                and node != cls.tarcompany
+                and attr['address'] == tar_company_address]
+                
+            # 剔除目标公司本身
+            common_address_num = len(legal_person_address)
+            common_address_name = legal_person_address
             
             if return_name:
-                return [
-                    company_name 
-                    for company_name, address 
-                    in legal_person_address.iteritems()
-                    if address == common_address_name]
+                return common_address_name
             else:
                 return common_address_num
+                
         
         same_address_num = {'{0}d_same_address_num'.format(each_distance): 
                             get_certain_distance_info(each_distance, False)
@@ -514,7 +516,7 @@ class FeatureConstruction(object):
                 and attr['name'] in certain_nodes_name
             }
             
-            #特殊处理，获取地址相同公司名单
+            #特殊处理，获取与目标公司地址相同的公司名单
             certain_nodes_name = cls.same_address_name[
                 '{0}d_same_address_name'.format(distance)]
             common_address = {

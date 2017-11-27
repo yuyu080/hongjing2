@@ -90,7 +90,7 @@ def change_prob_score(row, quantile_one, quantile_two):
                  (quantile_one_changed - raw_prob_changed) * 30. / 
                  (quantile_one_changed - quantile_two_changed))
     elif raw_prob < quantile_two:
-        score = sigmoid(raw_prob*50000) * 30. / sigmoid(quantile_two*50000) 
+        score = sigmoid(raw_prob*50000) * 30. / sigmoid(quantile_two*50000)
     
     #第二次变换
     #result = score
