@@ -120,8 +120,6 @@ def spark_data_flow():
     ).where(
         fun.when(
             hongjing_filter_df.bbd_qyxx_id.isNull(), True
-        ).when(
-            tid_all_df.company_type == u'私募基金', True
         )
     ).select(
         tid_all_df.bbd_qyxx_id,
