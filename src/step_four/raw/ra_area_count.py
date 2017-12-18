@@ -279,7 +279,7 @@ def raw_spark_data_flow():
         'province',
         'city',
         'county',
-        'company_name',
+        'bbd_qyxx_id',
         'company_type',
         'data_version'
     ).where(
@@ -289,7 +289,7 @@ def raw_spark_data_flow():
         'province',
         'city',
         'county',
-        'company_name',
+        'bbd_qyxx_id',
         'company_type',
         'data_version'
     ).where(
@@ -298,7 +298,7 @@ def raw_spark_data_flow():
     tmp_new_2_df = tmp_new_df.union(
         tmp_old_df
     ).groupBy(
-        ['province', 'city', 'county', 'company_name']
+        ['province', 'city', 'county', 'bbd_qyxx_id']
     ).agg(
         {'data_version': 'collect_list'}
     ).select(
@@ -336,14 +336,14 @@ def raw_spark_data_flow():
     tmp_new_6_df = tmp_new_df.union(
         tmp_old_df
     ).groupBy(
-        ['province', 'city', 'county', 'company_name', 'company_type']
+        ['province', 'city', 'county', 'bbd_qyxx_id', 'company_type']
     ).agg(
         {'data_version': 'collect_list'}
     ).select(
         'province',
         'city',
         'county',
-        'company_name',
+        'bbd_qyxx_id',
         'company_type',
         'collect_list(data_version)',
         get_change_info_udf(
@@ -468,7 +468,7 @@ def raw_spark_data_flow():
         'province',
         'city',
         'county',
-        'company_name',
+        'bbd_qyxx_id',
         'company_type',
         'data_version'
     )
@@ -476,21 +476,21 @@ def raw_spark_data_flow():
         'province',
         'city',
         'county',
-        'company_name',
+        'bbd_qyxx_id',
         'company_type',
         'data_version'
     )
     tmp_new_4_df = tmp_new_df.union(
         tmp_old_df
     ).groupBy(
-        ['province', 'city', 'county', 'company_name']
+        ['province', 'city', 'county', 'bbd_qyxx_id']
     ).agg(
         {'data_version': 'collect_list'}
     ).select(
         'province',
         'city',
         'county',
-        'company_name',
+        'bbd_qyxx_id',
         'collect_list(data_version)',
         get_change_info_udf(
             'collect_list(data_version)').alias('risk_change')
@@ -521,7 +521,7 @@ def raw_spark_data_flow():
     tmp_new_8_df = tmp_new_df.union(
         tmp_old_df
     ).groupBy(
-        ['province', 'city', 'county', 'company_name', 'company_type']
+        ['province', 'city', 'county', 'bbd_qyxx_id', 'company_type']
     ).agg(
         {'data_version': 'collect_list'}
     ).select(
