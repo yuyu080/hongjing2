@@ -41,6 +41,7 @@ def truncate_table(table):
     print "清空表{0}成功".format(table)
 
 def get_change_info(col):
+    col = sorted(col)
     if len(col) == 2:
         return 0
     elif col[0] == OLD_VERSION:
