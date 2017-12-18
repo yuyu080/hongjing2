@@ -188,7 +188,7 @@ def raw_spark_data_flow():
         'province',
         'city',
         'county',
-        'company_name'
+        'bbd_qyxx_id'
     ).where(
         new_df.risk_rank == u'高危预警'
     ).groupBy(
@@ -205,7 +205,7 @@ def raw_spark_data_flow():
         'province',
         'city',
         'county',
-        'company_name'
+        'bbd_qyxx_id'
     ).where(
         new_df.risk_rank == u'重点关注'
     ).groupBy(
@@ -222,7 +222,7 @@ def raw_spark_data_flow():
         'province',
         'city',
         'county',
-        'company_name'
+        'bbd_qyxx_id'
     ).where(
         new_df.risk_rank == u'持续监控'
     ).groupBy(
@@ -240,7 +240,7 @@ def raw_spark_data_flow():
         'province',
         'city',
         'county',
-        'company_name'
+        'bbd_qyxx_id'
     ).groupBy(
         ['province', 'city', 'county']
     ).count(
@@ -306,7 +306,7 @@ def raw_spark_data_flow():
         'province',
         'city',
         'county',
-        'company_name',
+        'bbd_qyxx_id',
         'collect_list(data_version)',
         get_change_info_udf(
             'collect_list(data_version)').alias('risk_change')
@@ -529,7 +529,7 @@ def raw_spark_data_flow():
         'province',
         'city',
         'county',
-        'company_name',
+        'bbd_qyxx_id',
         'company_type',
         'collect_list(data_version)',
         get_change_info_udf(
