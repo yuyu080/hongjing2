@@ -76,8 +76,6 @@ def get_wdzj_df(version):
         WHERE
         dt='{version}'
         '''.format(version=version)
-    ).dropDuplicates(
-        ['bbd_qyxx_id']   
     )
     
     return raw_df
