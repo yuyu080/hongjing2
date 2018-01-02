@@ -221,7 +221,7 @@ def run():
         bbd_qyxx_id,
         count(*) zhuanli_num
         FROM
-        dw.qyxx_zhuanli
+        dw.qyxx_wanfang_zhuanli
         WHERE
         dt='{version}' 
         AND
@@ -768,7 +768,7 @@ def run():
         name fzjg_name,
         1 is_fzjg
         FROM
-        dw.qyxx_fzjg_extend
+        dw.qyxx_fzjg_merge
         WHERE
         dt='{version}'
         '''.format(version=FZJG_VERSION)
