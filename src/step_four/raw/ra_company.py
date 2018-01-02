@@ -422,7 +422,7 @@ def run():
         
     #输出到mysql
     if IS_INTO_MYSQL:
-        truncate_table('ra_company')
+        truncate_table(TABLE)
         os.system(
         ''' 
         sqoop export \
