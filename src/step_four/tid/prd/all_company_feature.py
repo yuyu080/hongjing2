@@ -723,7 +723,7 @@ def run():
          "all_company_feature"
          "/{version}").format(path=OUT_PATH, 
                               version=RELATION_VERSION))
-    pd_df.repartition(30).saveAsTextFile(
+    pd_df.saveAsTextFile(
         ("{path}/"
         "all_company_feature"
         "/{version}").format(path=OUT_PATH, 
