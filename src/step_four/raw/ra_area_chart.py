@@ -96,8 +96,6 @@ def get_exchange_df(version):
         WHERE
         dt='{version}'
         '''.format(version=version)
-    ).dropDuplicates(
-        ['bbd_qyxx_id']   
     )
     
     return raw_df
@@ -121,8 +119,6 @@ def get_smjj_df(version):
         WHERE
         dt='{version}'
         '''.format(version=version)
-    ).dropDuplicates(
-        ['bbd_qyxx_id']   
     )
     
     return raw_df
