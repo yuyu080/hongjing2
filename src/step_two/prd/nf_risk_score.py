@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
+# 重新写提交命令吧
 '''
 提交命令：
 /opt/spark-2.0.2/bin/spark-submit \
 --master yarn \
 --deploy-mode client \
 --queue project.hongjing \
-nf_risk_score.py
+nf_risk_score.py {version}
+修改：重新实现主体逻辑
 '''
 
 import sys
@@ -17,174 +19,361 @@ import numpy as np
 import configparser
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
+import pandas as pd
+
+# 测试数列或者单个数可不可以
+
+from sklearn.externals import joblib
+
+reload(sys)
+sys.setdefaultencoding("utf-8")
+
+
+def linear(data, weight):
+    '''
+    计算线性y值函数，被其他函数调用
+    :param data: 要计算的数据
+    :param weight: 权重
+    :return: 计算结果
+    '''
+    return np.dot(data, weight[1:]) + weight[0]
 
 def sigmoid(x):
+    '''
+    sigmoid函数，被其他函数调用
+    :param x: 要计算的数据
+    :return: 计算结果
+    '''
     return 1. / (1 + math.exp(-x))
 
-def get_first_grade_indexes(row):
-    '''计算一级指标'''
-    vector = row[4]
-    F1_weight = [-0.79, 0.196, -0.014]
-    F2_weight = [0.261, 0.325, -0.354, -0.061]
-    F3_weight = [-0.086, -0.671, 0.243]
-    F4_weight = [0.055, -0.007, 0.165,
-                 0.068, -0.273, -0.06,
-                 -0.009, 0.351, -0.012]
-    F5_weight = [-0.022, -0.072, -0.028,
-                 -0.018, -0.05, 0.002,
-                 0.001, -0.754, -0.053]
-    
-    #综合实力风险
-    GM_company_strength_risk = sigmoid(np.dot(F1_weight, 
-                                              [vector[1], vector[2], 
-                                               vector[4]])) * 100.
-    #经营行为风险
-    GM_behavior_risk = sigmoid(np.dot(F2_weight, 
-                                      [vector[5], vector[6], 
-                                       vector[7], vector[8]])) * 100.
-    #企业诚信风险
-    GM_credit_risk = sigmoid(np.dot(F3_weight, 
-                                    [vector[9], vector[10], 
-                                     vector[12]])) * 100.
-    #静态关联方风险
-    GM_static_relationship_risk = sigmoid(np.dot(
-        F4_weight,[vector[14], vector[15], vector[16],
-                   vector[17], vector[19], vector[20],
-                   vector[21], row[4][22], vector[23]])) * 100.
+def score_change(data, index):
+    '''
+    指数幂计算函数，被其他函数调用
+    :param data: 要计算的数据
+    :param index: 幂值
+    :return: 计算结果
+    '''
+    return math.pow(data, index) * 100
 
-    #动态关联方风险
-    GM_dynamic_relationship_risk = sigmoid(np.dot(
-        F5_weight,[vector[24], vector[27], vector[28],
-                   vector[29], vector[31], vector[32],
-                   vector[33], vector[36], vector[38]])) * 100.
+def logistic_count(data, weight, index):
+    '''
+    logistics计算
+    :param data: 要计算的数据
+    :param weight: 权重数据
+    :param index: 幂值
+    :return: 计算结果
+    '''
+    return score_change(sigmoid(linear(data, weight)), index)
 
-    return dict(
-            bbd_qyxx_id=row[0],
-            company_name=row[1],
-            total_score=row[3],
-            GM_company_strength_risk=round(GM_company_strength_risk, 1),
-            GM_behavior_risk=round(GM_behavior_risk, 1),
-            GM_credit_risk=round(GM_credit_risk, 1),
-            GM_static_relationship_risk=round(GM_static_relationship_risk, 1),
-            GM_dynamic_relationship_risk=round(GM_dynamic_relationship_risk, 1)
-        )
+def logistic_count_sub(data, weight, b, index):
+    '''
+    对风险子模块进行计算
+    :param data: 要计算的子模块数据
+    :param weight: 权重数据
+    :param b: 截距项
+    :param index: 幂值
+    :return: 计算结果
+    '''
+    return score_change(sigmoid(np.dot(data, weight) + b/DIMENSION * len(weight)), index)
 
+def runSQL(sqlstr):
+    '''
+    执行sql语句
+    :param sqlstr: 要执行的sql语句
+    :return: dataframe数据，并清洗null值数据
+    '''
+    return spark.sql(sqlstr).na.replace(['null', 'NULL', 'NaN', 'nan'], ['', '', '', '']).fillna(0.)
 
-def change_prob_score(row, quantile_one, quantile_two):
-    '''根据分位点，将判黑概率值转化成分'''
-    raw_prob = row[2]
-    raw_prob_changed = sigmoid(row[2])
-    quantile_one_changed = sigmoid(quantile_one)
-    quantile_two_changed = sigmoid(quantile_two)
+def facotrMatrix(lists):
+    '''
+    change the factorlist to the factorMatrix
+    :param lists: the factorlist
+    :return: the factorMatrix
+    '''
+    result = []
+    for i in range(0, len(lists[0]), 1):
+        tem = []
+        for j in range(0, len(lists), 1):
+            tem.append(lists[j][i])
+        result.append(tem)
+    return result
 
-    #第一次变换
-    if raw_prob >= quantile_one:
-        score = (
-            (raw_prob_changed - quantile_one_changed) * 40. / 
-            (0.75 - quantile_one_changed) + 
-            50        
-        )
-    elif quantile_two <= raw_prob < quantile_one:
-        score = ((raw_prob_changed - quantile_two_changed) * 50. / 
-                 (quantile_one_changed - quantile_two_changed) + 
-                 (quantile_one_changed - raw_prob_changed) * 30. / 
-                 (quantile_one_changed - quantile_two_changed))
-    elif raw_prob < quantile_two:
-        score = sigmoid(raw_prob*50000) * 30. / sigmoid(quantile_two*50000)
-    
-    #第二次变换
-    #result = score
-    if 50 < score <= 51:
-        #result = (sigmoid(score / 100.) * 100 -62) * 15 / 10. + 50
-        result = sigmoid(score - 50) * 100.
-    elif 51 < score <= 90:
-        #result = (sigmoid(score / 100.) * 100 -62) * 25 / 10. + 65
-        result = (90 - sigmoid(1) * 100.) * score / 39 + 51
-    else:
-        result = score
-    
-    return (row[0], row[1], row[2], round(result, 1), row[3])
-    
-def get_label_probability(iter_data):
-    '''计算判黑概率'''
-
-    from sklearn.externals import joblib
-    
+def count_logistic(iter_data, weight, zhibiao, sk, b, regression_coefficient):
+    '''
+    计算logistics子模快
+    :param iter_data: 每个分区的数据
+    :param weight: 权重
+    :param zhibiao: 子模块指标值
+    :param sk: sk值
+    :param b: 截距项
+    :param regression_coefficient: 线性回归系数
+    :return: rdd形式的数据
+    '''
     company_names = []
     bbd_qyxx_ids = []
-    data_set = []
-    
+    score_all = []
+    score_sub = []
     for each_row in iter_data:
         data = each_row['scaledFeatures'].values
         company_names.append(each_row['company_name'])
         bbd_qyxx_ids.append(each_row['bbd_qyxx_id'])
-        data_set.append(data)
-        
-    lr = joblib.load("GM_release_LR.model")
-    raw_prob = lr.predict_proba(data_set)
-    
-    return zip(bbd_qyxx_ids, company_names, raw_prob[:, 1], data_set)
+        score = 0
+        for i in range(0, ITERATION, 1):
+            score += logistic_count(data, weight[i], 0.2)
+        Score_logistic = score/10
+        score_all.append(Score_logistic)
+        '''子模块风险计算'''
+        score_submodule = []
+        for i in range(0, 5, 1):
+            data_sub = [data[x-1] for x in zhibiao[i]]
+            weight_sub = [regression_coefficient[x] for x in zhibiao[i]]
+            score_submodule.append(logistic_count_sub(data_sub, weight_sub, b, sk[i]))
+        score_sub.append(score_submodule)
+    # 转置处理
+    score_sub = facotrMatrix(score_sub)
+    return zip(bbd_qyxx_ids, company_names, score_all, score_sub[0], score_sub[1], score_sub[2], score_sub[3], score_sub[4])
 
-
-def spark_data_flow():
+def logistic_score():
+    '''
+    计算logistics主模快
+    :return: dataframe形式的结果数据
+    '''
+    # 读logistics原数据
     input_df = spark.read.parquet(
         "{path}/nf_feature_preprocessing/"
-        "{version}".format(path=IN_PATH,
-                           version=RELATION_VERSION))
-    #step_one 计算判黑概率
-    raw_rdd = input_df.rdd.repartition(
-        100
-    ).mapPartitions(
-        get_label_probability
-    ).cache()
-    
-    
-    #step_two 将判黑概率转换成分数
-    #计算分位点
-    score_distribution = raw_rdd.map(
-        lambda r: r[2]
-    ).collect()
-    score_distribution.sort(reverse=True)
-    #取5%与50%的分位点
-    top_five_index = int(len(score_distribution) * 0.05) - 1
-    top_fifty_index = int(len(score_distribution) * 0.5) - 1
-    #得到分位点
-    Y_1 = score_distribution[top_five_index]
-    Y_2 = score_distribution[top_fifty_index]
-    #得到结果
-    tid_rdd = raw_rdd.map(
-        lambda r: change_prob_score(r, Y_1, Y_2)
-    ).cache()
-    
-    #step_three 计算一级指标的得分
-    prd_rdd = tid_rdd.map(
-        get_first_grade_indexes
-    ).map(
-        lambda r: json.dumps(r, ensure_ascii=False)
+        "{version}".format(path=IN_PATH, version=RELATION_VERSION))
+    # 读权重数据weight
+    weight_df = spark.read.csv(WEIGHT_PATH, encoding="utf-8", header=True, sep='\t')
+    weight_df.registerTempTable('weight')
+    weight_df = spark.sql('''
+    select cast(V1 as double) V1, cast(V2 as double) V2, cast(V3 as double) V3, cast(V4 as double) V4, cast(V5 as double) V5, cast(V6 as double) V6, cast(V7 as double) V7, cast(V8 as double) V8, cast(V9 as double) V9, cast(V10 as double) V10 from weight
+    ''')
+    # 得到权重数据列表
+    weight = weight_df.rdd.collect()
+    # 计算每一行的均值，为平均回归系数(包括截距项，要加1)
+    regression_coefficient = []
+    for i in range(0, DIMENSION + 1, 1):
+        regression_coefficient.append(sum(weight[i])/ITERATION)
+    print regression_coefficient
+    # 对权重数据进行转置处理
+    weight = facotrMatrix(weight)
+    # weight[0]表示第一列，注意包括了截距项，因此做乘法的时候要去掉截距项再加上截距项
+
+    # 风险各子模块需要取的数据，写到一个总的列表下面
+    zhibiao = [[1, 2, 33, 34, 35], [44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57], range(3, 26), [26, 27, 28, 29, 30, 31, 32, 36, 37, 38, 39, 40, 41, 42, 43], range(58, 62)]
+    # sk分
+    sk = [0.8, 0.5, 0.4, 0.5, 0.8]
+    # 系数
+    b = regression_coefficient[0]
+
+    # 执行计算，输出logistics得分和各风险子模块得分
+    raw_rdd = input_df.rdd.mapPartitions(lambda x: count_logistic(x, weight, zhibiao, sk, b, regression_coefficient))
+    # 转成df并重新命名
+    raw_df = raw_rdd.toDF().withColumnRenamed(
+        '_1', 'bbd_qyxx_id'
+    ).withColumnRenamed(
+        '_2', 'company_name'
+    ).withColumnRenamed(
+        '_3', 'Score_logistic'
+    ).withColumnRenamed(
+        '_4', 'GM_company_strength_risk'
+    ).withColumnRenamed(
+        '_5', 'GM_behavior_risk'
+    ).withColumnRenamed(
+        '_6', 'GM_credit_risk'
+    ).withColumnRenamed(
+        '_7', 'GM_static_relationship_risk'
+    ).withColumnRenamed(
+        '_8', 'GM_dynamic_relationship_risk'
+    ).orderBy('bbd_qyxx_id')
+
+    return raw_df
+
+def count_gbdt(iter_data, gbdt):
+    '''
+    gbdt计算子模块
+    :param iter_data: 每个分区的数据
+    :param gbdt: gbdt模型数据
+    :return: rdd结果数据
+    '''
+    company_names = []
+    bbd_qyxx_ids = []
+    data_set = []
+
+    for row in iter_data:
+        data =[row['feature_1']['n'],
+               row['feature_1']['r_3'],
+               row['feature_1']['r_4'],
+               row['feature_1']['r_i'],
+               row['feature_1']['w'],
+               row['feature_1']['x'],
+               row['feature_1']['y'],
+               row['feature_1']['z'],
+               row['feature_15']['x_1'],
+               row['feature_15']['x_2'],
+               row['feature_15']['y_1'],
+               row['feature_15']['y_2'],
+               row['feature_16']['v_1'],
+               row['feature_16']['v_2'],
+               row['feature_16']['v_3'],
+               row['feature_16']['w_1'],
+               row['feature_16']['w_1'],
+               row['feature_16']['w_3'],
+               row['feature_16']['x_1'],
+               row['feature_16']['x_2'],
+               row['feature_16']['x_3'],
+               row['feature_16']['y_1'],
+               row['feature_16']['y_2'],
+               row['feature_16']['y_3'],
+               row['feature_17']['x'],
+               row['feature_17']['y'],
+               row['feature_18']['d'],
+               row['feature_19']['x_1'],
+               row['feature_19']['x_2'],
+               row['feature_19']['x_3'],
+               row['feature_2']['x'],
+               row['feature_2']['x_1'],
+               row['feature_2']['y'],
+               row['feature_20']['x_1'],
+               row['feature_20']['x_2'],
+               row['feature_20']['x_3'],
+               row['feature_20']['y_1'],
+               row['feature_20']['y_2'],
+               row['feature_20']['y_3'],
+               row['feature_20']['z_1'],
+               row['feature_20']['z_2'],
+               row['feature_20']['z_3'],
+               row['feature_22']['d'],
+               row['feature_24']['w'],
+               row['feature_24']['x_0'],
+               row['feature_24']['x_1'],
+               row['feature_24']['x_2'],
+               row['feature_24']['x_3'],
+               row['feature_4']['k_1'],
+               row['feature_4']['k_2'],
+               row['feature_5']['c_i'],
+               row['feature_5']['p_i'],
+               row['feature_6']['c_1'],
+               row['feature_6']['c_2'],
+               row['feature_6']['c_3'],
+               row['feature_6']['c_4'],
+               row['feature_6']['c_5'],
+               row['feature_7']['e'],
+               row['feature_7']['e_1'],
+               row['feature_7']['e_2'],
+               row['feature_7']['e_3'],
+               row['feature_7']['e_4'],
+               row['feature_7']['e_5'],
+               row['feature_7']['e_6'],
+               row['feature_8']['t_1'],
+               row['feature_8']['t_2'],
+               row['feature_8']['t_3'],
+               row['feature_9']['n_1'],
+               row['feature_9']['n_2'],
+               row['feature_26']['a_1'],
+               row['feature_26']['a_4'],
+               row['feature_26']['a_5'],
+               row['feature_26']['a_6'],
+               row['feature_26']['b_1'],
+               row['feature_26']['b_2'],
+               row['feature_26']['b_3'],
+               row['feature_26']['c_1'],
+               row['feature_26']['d_2']]
+        company_names.append(row['company_name'])
+        bbd_qyxx_ids.append(row['bbd_qyxx_id'])
+        data_set.append(data)
+    prob = gbdt.predict_proba(pd.DataFrame(data_set))
+    prob = facotrMatrix(prob)[1]
+    gbdtS = []
+    for list in prob:
+        gbdtS.append(score_change(list, 0.2))
+
+    return zip(bbd_qyxx_ids, company_names, gbdtS)
+
+
+def GBDT_score():
+    '''
+    gbdt主模块
+    :return: dataframe形式的结果数据
+    '''
+    # 读gbdt原数据
+    feature_df = spark.read.parquet(
+        "{path}/nf_feature_merge/{version}".format(path=IN_PATH_GBDT, version=RELATION_VERSION))
+
+    gbdt = joblib.load(MODEL_FILE)
+    feature_rdd = feature_df.rdd.mapPartitions(lambda x: count_gbdt(x, gbdt))
+    feature_df = feature_rdd.toDF().withColumnRenamed(
+        '_1', 'bbd_qyxx_id'
+    ).withColumnRenamed(
+        '_2', 'company_name'
+    ).withColumnRenamed(
+        '_3', 'Score_GBDT'
+    ).orderBy('bbd_qyxx_id')
+    return feature_df
+
+def change_type(row):
+    '''
+    由于结果数据是dataframe格式，将其改为标准输出形式
+    :param row: 每一行数据
+    :return: 标准输出格式数据
+    '''
+    row_dict = dict(
+        bbd_qyxx_id=row[0],
+        company_name=row[1],
+        total_score=row[2],
+        GM_company_strength_risk=row[3],
+        GM_behavior_risk=row[4],
+        GM_credit_risk=row[5],
+        GM_static_relationship_risk=row[6],
+        GM_dynamic_relationship_risk=row[7]
     )
-    
-    return prd_rdd
-    
+    return json.dumps(row_dict, ensure_ascii=False)
+
 def run():
-    prd_rdd = spark_data_flow()
-    
+    '''
+    执行主模块
+    :return: 无
+    '''
+    # logistics结果数据
+    prd_logistic_df = logistic_score()
+
+    # gbdt结果数据
+    prd_gbdt_df = GBDT_score()
+
+    prd_logistic_df.registerTempTable('L')
+    prd_gbdt_df.registerTempTable('R')
+
+    sqlstr = '''
+    select L.bbd_qyxx_id, L.company_name, (Score_GBDT*0.885+Score_logistic*0.862)/(0.885+0.862) Score_logistic_GBDT, GM_company_strength_risk, GM_behavior_risk, GM_credit_risk, GM_static_relationship_risk, GM_dynamic_relationship_risk from L 
+    Left join R on L.bbd_qyxx_id == R.bbd_qyxx_id
+    order by bbd_qyxx_id
+    '''
+    # 执行sql语句，得到最终结果
+    prd_result_df = runSQL(sqlstr)
+
+    # 将最终结果转换成标准数据输出格式
+    prd_result_rdd = prd_result_df.rdd.map(
+        change_type
+    )
+
+    # 保存数据
     os.system(
-        ("hadoop fs -rmr " 
+        ("hadoop fs -rmr "
          "{path}/"
-         "nf_feature_risk_score/{version}").format(path=OUT_PATH, 
+         "nf_feature_risk_score/{version}").format(path=OUT_PATH,
                                                    version=RELATION_VERSION))
-    
+
     codec = "org.apache.hadoop.io.compress.GzipCodec"
-    prd_rdd.coalesce(
+    prd_result_rdd.coalesce(
         10
     ).saveAsTextFile(
         ("{path}/"
-         "nf_feature_risk_score/{version}").format(path=OUT_PATH, 
+         "nf_feature_risk_score/{version}").format(path=OUT_PATH,
                                                    version=RELATION_VERSION),
         codec
     )
 
-def get_spark_session():   
+def get_spark_session():
     conf = SparkConf()
     conf.setMaster('yarn-client')
     conf.set("spark.yarn.am.cores", 7)
@@ -194,7 +383,7 @@ def get_spark_session():
     conf.set("spark.python.worker.memory", "2g")
     conf.set("spark.default.parallelism", 1000)
     conf.set("spark.sql.shuffle.partitions", 1000)
-    conf.set("spark.broadcast.blockSize", 1024)   
+    conf.set("spark.broadcast.blockSize", 1024)
     conf.set("spark.shuffle.file.buffer", '512k')
     conf.set("spark.speculation", True)
     conf.set("spark.speculation.quantile", 0.98)
@@ -202,26 +391,32 @@ def get_spark_session():
 
     spark = SparkSession \
         .builder \
-        .appName("hgongjing2_two_prd_nf_risk_score") \
-        .config(conf = conf) \
+        .appName("hgongjing5_two_prd_nf_risk_score") \
+        .config(conf=conf) \
         .enableHiveSupport() \
-        .getOrCreate()  
-        
+        .getOrCreate()
     return spark
 
 if __name__ == '__main__':
-    conf = configparser.ConfigParser()    
-    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
-    MODEL_FILE = ("/data5/antifraud/Hongjing2/data/inputdata/model/"
-                  "GM_release_LR.model")
-    
+    conf = configparser.ConfigParser()
+    conf.read("/data5/antifraud/qiling/conf/hongjing5.ini", encoding='UTF-8')
+    # 上传，并更改了模型C6路径
+    MODEL_FILE = '/data5/antifraud/qiling/data/gbdt_2018_02_04.pkl'
+
     IN_PATH = conf.get('feature_preprocessing', 'OUT_PATH')
+    # 增加了gbdt数据读取路径
+    IN_PATH_GBDT = conf.get('feature_merge', 'OUT_PATH')
     OUT_PATH = conf.get('risk_score', 'OUT_PATH')
-    
-    #中间结果版本
+    # 增加了权重路径
+    WEIGHT_PATH = conf.get('risk_score', 'WEIGHT_PATH')
+
     RELATION_VERSION = sys.argv[1]
-    
+
     spark = get_spark_session()
-    
+
+    # 指标的维度
+    DIMENSION = 61
+    # 逻辑回归迭代次数
+    ITERATION = 10
+
     run()
-    

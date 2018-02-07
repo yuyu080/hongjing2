@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module org.jetbrains.idea.maven.project.MavenProjectsManager.isMavenModule="true" type="JAVA_MODULE" version="4">
+  <component name="FacetManager">
+    <facet type="Python" name="Python">
+      <configuration sdkName="Python 2.7.12 (E:\Program Files (x86)\Anaconda2\python.exe)" />
+    </facet>
+  </component>
   <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_1_5">
     <output url="file://$MODULE_DIR$/target/classes" />
     <output-test url="file://$MODULE_DIR$/target/test-classes" />
@@ -194,5 +199,6 @@
     <orderEntry type="library" name="Maven: com.typesafe.scala-logging:scala-logging-slf4j_2.11:2.1.2" level="project" />
     <orderEntry type="library" name="Maven: com.typesafe.scala-logging:scala-logging-api_2.11:2.1.2" level="project" />
     <orderEntry type="library" name="Maven: org.scala-lang:scala-reflect:2.11.0" level="project" />
+    <orderEntry type="library" name="Python 2.7.12 (E:\Program Files (x86)\Anaconda2\python.exe) interpreter library" level="application" />
   </component>
 </module>
