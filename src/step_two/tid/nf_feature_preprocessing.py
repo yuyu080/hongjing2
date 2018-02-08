@@ -295,7 +295,7 @@ def run():
 if __name__ == '__main__':
     # 读配置文件
     conf = configparser.ConfigParser()
-    conf.read("/data5/antifraud/qiling/conf/hongjing5.ini", encoding='UTF-8')
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
 
     RELATION_VERSION = sys.argv[1]
 

@@ -143,7 +143,8 @@ def logistic_score():
         "{path}/nf_feature_preprocessing/"
         "{version}".format(path=IN_PATH, version=RELATION_VERSION))
     # 读权重数据weight
-    weight_df = spark.read.csv(WEIGHT_PATH, encoding="utf-8", header=True, sep='\t')
+    weight_pd = pd.read_csv(WEIGHT_PATH, header=0, encoding='utf-8', sep='\t')
+    weight_df = spark.createDataFrame(weight_pd)
     weight_df.registerTempTable('weight')
     weight_df = spark.sql('''
     select cast(V1 as double) V1, cast(V2 as double) V2, cast(V3 as double) V3, cast(V4 as double) V4, cast(V5 as double) V5, cast(V6 as double) V6, cast(V7 as double) V7, cast(V8 as double) V8, cast(V9 as double) V9, cast(V10 as double) V10 from weight
@@ -479,7 +480,7 @@ def get_spark_session():
 
 if __name__ == '__main__':
     conf = configparser.ConfigParser()
-    conf.read("/data5/antifraud/qiling/conf/hongjing5.ini", encoding='UTF-8')
+    conf.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
     # 上传，并更改了模型C6路径
     MODEL_FILE = '/data5/antifraud/qiling/data/gbdt_2018_02_04.pkl'
 
@@ -488,7 +489,7 @@ if __name__ == '__main__':
     IN_PATH_GBDT = conf.get('feature_merge', 'OUT_PATH')
     OUT_PATH = conf.get('risk_score', 'OUT_PATH')
     # 增加了权重路径
-    WEIGHT_PATH = conf.get('risk_score', 'WEIGHT_PATH')
+    WEIGHT_PATH = "/data5/antifraud/Hongjing2/data/inputdata/weight/weight"
 
     RELATION_VERSION = sys.argv[1]
 

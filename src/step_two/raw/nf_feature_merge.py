@@ -99,7 +99,7 @@ def run():
 if __name__ == '__main__':
     # 读取配置文件，这块暂时存到我的文件目录下面
     config = configparser.ConfigParser()
-    config.read("/data5/antifraud/qiling/conf/hongjing5.ini", encoding='UTF-8')
+    config.read("/data5/antifraud/Hongjing2/conf/hongjing2.py")
 
     TYPE_NF_LIST = eval(config.get('input_sample_data', 'TYPE_NF_LIST'))
 
