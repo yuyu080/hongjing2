@@ -1347,7 +1347,7 @@ def run():
          "common_static_feature_distribution_v2"
          "/{version}").format(path=OUT_PATH, 
                               version=RELATION_VERSION))
-    pd_df.repartition(10).saveAsTextFile(
+    pd_df.repartition(1000).saveAsTextFile(
         ("{path}/"
         "common_static_feature_distribution_v2"
         "/{version}").format(path=OUT_PATH, 

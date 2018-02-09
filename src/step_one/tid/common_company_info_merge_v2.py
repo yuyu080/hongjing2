@@ -1172,9 +1172,7 @@ def prd_spark_data_flow():
         "{version}".format(version=RELATION_VERSION,
                            path=OUT_PATH))
     
-    tid_company_merge_df.repartition(
-        50
-    ).write.parquet(
+    tid_company_merge_df.write.parquet(
         "{path}/"
         "common_company_info_merge_v2/"
         "{version}".format(version=RELATION_VERSION,
