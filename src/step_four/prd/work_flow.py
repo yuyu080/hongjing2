@@ -259,11 +259,11 @@ def run(is_history_back):
     if is_history_back:
         #多版本计算
         for index, relation_version in enumerate(RELATION_VERSIONS):
-            if index < 3:
+            if index < 6:
                 old_version = RELATION_VERSIONS[0]
                 new_version = relation_version
             else:
-                old_version = RELATION_VERSIONS[index-3]
+                old_version = RELATION_VERSIONS[index-6]
                 new_version = relation_version        
             
             step_zero('prd', new_version)
@@ -287,10 +287,10 @@ def run(is_history_back):
         #单版本计算
         #获取用于计算动态风险的时间版本
         new_index = RELATION_VERSIONS.index(NEW_VERSION)
-        if new_index < 3:
+        if new_index < 6:
             dynamic_old_version = RELATION_VERSIONS[0]
         else:
-            dynamic_old_version = RELATION_VERSIONS[new_index-3]
+            dynamic_old_version = RELATION_VERSIONS[new_index-6]
 
         step_zero('prd', NEW_VERSION)
         
