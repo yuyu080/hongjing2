@@ -76,7 +76,7 @@ def spark_data_flow(static_version, dynamic_version):
     ).select(
         [static_df.bbd_qyxx_id,
          static_df.company_name,
-         'feature_1', 'feature_10', 'feature_12', 'feature_13', 'feature_15', 'feature_16', 'feature_17', 'feature_18', 'feature_19', 'feature_2', 'feature_20', 'feature_22', 'feature_23', 'feature_24', 'feature_26', 'feature_4', 'feature_5', 'feature_6', 'feature_7', 'feature_8', 'feature_9']
+         'feature_1', 'feature_10', 'feature_11', 'feature_12', 'feature_13', 'feature_15', 'feature_16', 'feature_17', 'feature_18', 'feature_19', 'feature_2', 'feature_20', 'feature_22', 'feature_23', 'feature_24', 'feature_26', 'feature_4', 'feature_5', 'feature_6', 'feature_7', 'feature_8', 'feature_9']
     )
     return feature_df
 
