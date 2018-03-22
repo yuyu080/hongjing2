@@ -21,6 +21,18 @@ def hongjing_finance_kpi():
                                columns,
                                'hongjing_financial_{version}.hbaseshell'.format(version='20170518'),
                                '\t')
-    
+
+def hongjing_ra_company():
+    dataPath = '/user/hongjing/ra_company/20180227'
+    tabName = 'hongjing_ra_company_{version}'.format(version='20180227')
+    # columns = 'HBASE_ROW_KEY,info:company,info:risk_index,info:industry,info:register_area,info:risk_level,info:gmt_create,info:reason_create,info:risk_scan'
+    columns = 'HBASE_ROW_KEY,info:company,info:risk_index,info:industry,info:register_area,info:risk_level,info:gmt_create,info:risk_scan'
+
+    HbaseUtils.bulkloadToHbase(dataPath,
+                               tabName,
+                               columns,
+                               'hongjing_ra_company_{version}.hbaseshell'.format(version='20180227'),
+                               '\t')
+
 if __name__ == "__main__":
     pass

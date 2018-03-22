@@ -363,6 +363,8 @@ def raw_spark_data_flow():
         tid_company_info_df.company_name,
         'isSOcompany',
         fun.when(
+            basic_df.ipo_company != 'null', True
+        ).when(
             basic_df.ipo_company != 'NULL', True
         ).otherwise(False).alias('isIPOcompany'),
         basic_df.realcap_amount.alias('realcap'),

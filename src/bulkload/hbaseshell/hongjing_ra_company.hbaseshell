@@ -1,0 +1,9 @@
+import java.util.Date
+import java.text.SimpleDateFormat
+
+flush 'hongjing_ra_company_20180227'
+disable 'hongjing_ra_company_20180227'
+drop 'hongjing_ra_company_20180227'
+create 'hongjing_ra_company_20180227',{NAME=>'info', COMPRESSION => 'snappy'}, SPLITS => ['0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z']
+put  'api_meta','hongjing_ra_company_v1','f1:table','hongjing_ra_company_20180227'
+exit

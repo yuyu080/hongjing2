@@ -263,8 +263,8 @@ IS_INTO_MYSQL = False
 OUT_PATH = /user/antifraud/hongjing2/dataflow/step_four/raw
 
 
-
-
+[step_five]
+OUT_PATH = /user/antifraud/hongjing2/dataflow/step_five/
 
 
 
