@@ -363,10 +363,10 @@ def raw_spark_data_flow():
         tid_company_info_df.company_name,
         'isSOcompany',
         fun.when(
-            basic_df.ipo_company != 'null', True
+            basic_df.ipo_company = 'null', False
         ).when(
-            basic_df.ipo_company != 'NULL', True
-        ).otherwise(False).alias('isIPOcompany'),
+            basic_df.ipo_company = 'NULL', False
+        ).otherwise(True).alias('isIPOcompany'),
         basic_df.realcap_amount.alias('realcap'),
         basic_df.regcap_amount.alias('regcap'),
         basic_df.esdate.alias('regtime'),
