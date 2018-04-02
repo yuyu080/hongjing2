@@ -1,5 +1,6 @@
 [common]
 
+# dw.off_line_relations
 RELATION_VERSIONS = ["20170117", "20170221", "20170315", 
                      "20170417", "20170518", "20170627",
                      "20170720", "20170825", "20170924",
@@ -9,17 +10,17 @@ RELATION_VERSIONS = ["20170117", "20170221", "20170315",
 WDZJ_VERSION_LIST = ['20170427', '20170521', '20170624', 
                      '20170722', '20170828', '20170920',
                      '20171018', '20171124', '20171220',
-                     '20180119', '20180226']
+                     '20180119', '20180228']
 #dw.qyxg_exchange
 EXCHANGE_VERSION_LIST = ['20170427', '20170521', '20170624',
                          '20170722', '20170828', '20170920',
                          '20171018', '20171124', '20171220',
-                         '20180119', '20180226']
+                         '20180119', '20180228']
 #dw.qyxg_jijin_simu
 SMJJ_VERSION_LIST = ['20170427', '20170521', '20170624',
                      '20170722', '20170828', '20170920',
                      '20171018', '20171124', '20171220',
-                     '20180119', '20180226']
+                     '20180119', '20180228']
 
 
 [mysql]
@@ -57,7 +58,7 @@ WEIGHT_DICT = {
 #适用于通用模型的部分，红警监控企业类型
 #qyxx_tag
 TABLE_NAME = dw.qyxx_tag
-TAGS_VERSION = 20180226
+TAGS_VERSION = 20180228
 TYPE_LIST = [u'新兴金融', u'融资担保', u'小额贷款',
              u'私募基金', u'交易场所', u'网络借贷']
 #用于LR模型的金融细分行业
@@ -67,11 +68,11 @@ TYPE_LR_LIST = [u'新兴金融', u'融资担保', u'小额贷款',
 TYPE_NF_LIST = [u'新兴金融', u'融资担保', u'小额贷款']
 #需要增加的白名单
 WHITE_TABLE_NAME = dw.qyxx_tag_white
-WHITE_TAGS_VERSION = 20180226 
+WHITE_TAGS_VERSION = 20180228 
 
 #需要过滤的数据版本
 BLACK_TABLE_NAME = dw.qyxx_tag_black
-BLACK_VERSION = 20180226
+BLACK_VERSION = 20180228
 
 #输出路径
 OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/raw/
@@ -82,43 +83,43 @@ OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/raw/
 [common_company_info]
 
 #dw.qyxx_basic
-BASIC_VERSION = 20180226
+BASIC_VERSION = 20180228
 #dw.qyxx_zhuanli
-ZHUANLI_VERSION = 20180226
+ZHUANLI_VERSION = 20180228
 #dw.xgxx_shangbiao
-SHANGBIAO_VERSION = 20180226
+SHANGBIAO_VERSION = 20180228
 #dw.domain_name_website_info
-DOMAIN_WEBSITE_VERSION = 20180226
+DOMAIN_WEBSITE_VERSION = 20180228
 #dw.qyxx_bgxx
-BGXX_VERSION = 20180226
+BGXX_VERSION = 20180228
 #dw.recruit
-RECRUIT_VERSION = 20180226
+RECRUIT_VERSION = 20180228
 #dw.shgy_zhaobjg
-ZHAOBIAO_VERSION = 20180226
+ZHAOBIAO_VERSION = 20180228
 #dw.shgy_zhongbjg
-ZHONGBIAO_VERSION = 20180226 
+ZHONGBIAO_VERSION = 20180228 
 #dw.ktgg
-KTGG_VERSION = 20180226
+KTGG_VERSION = 20180228
 #dw.zgcpwsw
-ZGCPWSW_VERSION = 20180226
+ZGCPWSW_VERSION = 20180228
 #dw.rmfygg
-RMFYGG_VERSION = 20180226
+RMFYGG_VERSION = 20180228
 #dw.Xzcf
-XZCF_VERSION = 20180226
+XZCF_VERSION = 20180228
 #dw.zhixing
-ZHIXING_VERSION = 20180226
+ZHIXING_VERSION = 20180228
 #dw.dishonesty
-DISHONESTY_VERSION = 20180226
+DISHONESTY_VERSION = 20180228
 #dw.qyxg_jyyc
-JYYC_VERSION = 20180226
+JYYC_VERSION = 20180228
 #dw.qyxg_circxzcf
-CIRCXZCF_VERSION = 20180226
+CIRCXZCF_VERSION = 20180228
 #dw.qyxx_fzjg_extend
-FZJG_VERSION = 20180226
+FZJG_VERSION = 20180228
 #dw.qyxg_leijinrong_blacklist
 BLACK_VERSION = 20170901
 #dw.qyxx_state_owned_enterprise_background
-STATE_OWNED_VERSION = 20180226
+STATE_OWNED_VERSION = 20180228
 
 OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/raw/
 
@@ -149,7 +150,7 @@ OUT_PATH = /user/antifraud/hongjing2/dataflow/step_one/prd/
 [ex_company_feature]
 
 #dw.qyxg_exchange
-EXCHANGE_VERSION = 20180226
+EXCHANGE_VERSION = 20180228
 
 
 
@@ -159,9 +160,9 @@ EXCHANGE_VERSION = 20180226
 [p2p_company_feature]
 
 #dw.qyxg_platform_data
-PLATFORM_VERSION = 20180226
+PLATFORM_VERSION = 20180228
 #dw.qyxg_wdzj
-WDZJ_VERSION = 20180226
+WDZJ_VERSION = 20180228
 
 
 
@@ -171,7 +172,7 @@ WDZJ_VERSION = 20180226
 [pe_company_feature]
 
 #dw.qyxg_jijin_simu
-SMJJ_VERSION = 20180226
+SMJJ_VERSION = 20180228
 
 
 
