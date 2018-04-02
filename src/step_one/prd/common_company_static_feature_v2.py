@@ -561,7 +561,7 @@ class FeatureConstruction(object):
             '''
             all_array = []
             #处理某一个distance不存在节点的情况
-            all_array.append([0]*len(document_types))            
+            all_array.append([0]*len(document_types))
             for node, attr in cls.DIG.nodes_iter(data=True):
                 if attr['is_human'] == 0  and attr['distance'] == distance:
                     each_array = map(lambda x: x if x else 0, 
@@ -735,7 +735,7 @@ class FeatureConstruction(object):
         legal_person_distribution = get_degree_distribution(0)
         
         nature_max_control = max(nature_person_distribution)
-        legal_max_control = max(legal_person_distribution)        
+        legal_max_control = max(legal_person_distribution)
         nature_avg_control = round(np.average(nature_person_distribution), 2)
         legal_avg_control = round(np.average(legal_person_distribution), 2)
         

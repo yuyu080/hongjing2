@@ -44,7 +44,13 @@ def sigmoid(x):
     :param x: 要计算的数据
     :return: 计算结果
     '''
-    return 1. / (1 + math.exp(-x))
+    try:
+        return 1. / (1 + math.exp(-x))
+    except:
+        if x > 0:
+            return 1.
+        else:
+            return 0.
 
 def score_change(data, index):
     '''
@@ -401,12 +407,12 @@ def change_type(row):
     row_dict = dict(
         bbd_qyxx_id=row[0],
         company_name=row[1],
-        total_score=row[2],
-        GM_company_strength_risk=row[3],
-        GM_behavior_risk=row[4],
-        GM_credit_risk=row[5],
-        GM_static_relationship_risk=row[6],
-        GM_dynamic_relationship_risk=row[7]
+        total_score=round(row[2],1),
+        GM_company_strength_risk=round(row[3],1),
+        GM_behavior_risk=round(row[4],1),
+        GM_credit_risk=round(row[5],1),
+        GM_static_relationship_risk=round(row[6],1),
+        GM_dynamic_relationship_risk=round(row[7],1)
     )
     return json.dumps(row_dict, ensure_ascii=False)
 
